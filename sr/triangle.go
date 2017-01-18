@@ -14,20 +14,10 @@ func NewTriangle(v1, v2, v3 Vector) *Triangle {
 	return &t
 }
 
-// func (t *Triangle) BoundingBox() Box {
-// 	min := t.V1.Min(t.V2).Min(t.V3)
-// 	max := t.V1.Max(t.V2).Max(t.V3)
-// 	return Box{min, max}
-// }
-
-func (t *Triangle) NormalAt(p Vector) Vector {
-	u, v, w := t.Barycentric(p)
-	n := Vector{}
-	n = n.Add(t.N1.MulScalar(u))
-	n = n.Add(t.N2.MulScalar(v))
-	n = n.Add(t.N3.MulScalar(w))
-	n = n.Normalize()
-	return n
+func (t *Triangle) BoundingBox() Box {
+	min := t.V1.Min(t.V2).Min(t.V3)
+	max := t.V1.Max(t.V2).Max(t.V3)
+	return Box{min, max}
 }
 
 func (t *Triangle) Area() float64 {
@@ -41,6 +31,16 @@ func (t *Triangle) Normal() Vector {
 	e1 := t.V2.Sub(t.V1)
 	e2 := t.V3.Sub(t.V1)
 	return e1.Cross(e2).Normalize()
+}
+
+func (t *Triangle) NormalAt(p Vector) Vector {
+	u, v, w := t.Barycentric(p)
+	n := Vector{}
+	n = n.Add(t.N1.MulScalar(u))
+	n = n.Add(t.N2.MulScalar(v))
+	n = n.Add(t.N3.MulScalar(w))
+	n = n.Normalize()
+	return n
 }
 
 func (t *Triangle) Barycentric(p Vector) (u, v, w float64) {

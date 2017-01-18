@@ -86,6 +86,10 @@ func (m *Mesh) UnitCube() {
 	m.MoveTo(Vector{}, Vector{0.5, 0.5, 0.5})
 }
 
+func (m *Mesh) BiUnitCube() {
+	m.FitInside(Box{Vector{-1, -1, -1}, Vector{1, 1, 1}}, Vector{})
+}
+
 func (m *Mesh) MoveTo(position, anchor Vector) {
 	matrix := Translate(position.Sub(m.BoundingBox().Anchor(anchor)))
 	m.Transform(matrix)

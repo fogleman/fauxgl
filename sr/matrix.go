@@ -75,14 +75,14 @@ func LookAt(eye, center, up Vector) Matrix {
 	up = up.Normalize()
 	f := center.Sub(eye).Normalize()
 	s := f.Cross(up).Normalize()
-	u := s.Cross(f)
+	u := s.Cross(f).Normalize()
 	m := Matrix{
-		s.X, u.X, f.X, 0,
-		s.Y, u.Y, f.Y, 0,
-		s.Z, u.Z, f.Z, 0,
+		s.X, u.X, -f.X, eye.X,
+		s.Y, u.Y, -f.Y, eye.Y,
+		s.Z, u.Z, -f.Z, eye.Z,
 		0, 0, 0, 1,
 	}
-	return m.Transpose().Inverse().Translate(eye)
+	return m.Inverse()
 }
 
 func (m Matrix) Translate(v Vector) Matrix {
