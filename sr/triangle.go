@@ -72,3 +72,75 @@ func (t *Triangle) FixNormals() {
 		t.N3 = n
 	}
 }
+
+func (t *Triangle) Rasterize() []Scanline {
+	x1 := int(t.V1.X)
+	y1 := int(t.V1.Y)
+	x2 := int(t.V2.X)
+	y2 := int(t.V2.Y)
+	x3 := int(t.V3.X)
+	y3 := int(t.V3.Y)
+	return rasterizeTriangle(x1, y1, x2, y2, x3, y3, nil)
+}
+
+func rasterizeTriangle(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
+	if y1 > y3 {
+		x1, x3 = x3, x1
+		y1, y3 = y3, y1
+	}
+	if y1 > y2 {
+		x1, x2 = x2, x1
+		y1, y2 = y2, y1
+	}
+	if y2 > y3 {
+		x2, x3 = x3, x2
+		y2, y3 = y3, y2
+	}
+	if y2 == y3 {
+		return rasterizeTriangleBottom(x1, y1, x2, y2, x3, y3, buf)
+	} else if y1 == y2 {
+		return rasterizeTriangleTop(x1, y1, x2, y2, x3, y3, buf)
+	} else {
+		x4 := x1 + int((float64(y2-y1)/float64(y3-y1))*float64(x3-x1))
+		y4 := y2
+		buf = rasterizeTriangleBottom(x1, y1, x2, y2, x4, y4, buf)
+		buf = rasterizeTriangleTop(x2, y2, x4, y4, x3, y3, buf)
+		return buf
+	}
+}
+
+func rasterizeTriangleBottom(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
+	s1 := float64(x2-x1) / float64(y2-y1)
+	s2 := float64(x3-x1) / float64(y3-y1)
+	ax := float64(x1)
+	bx := float64(x1)
+	for y := y1; y <= y2; y++ {
+		a := int(ax)
+		b := int(bx)
+		ax += s1
+		bx += s2
+		if a > b {
+			a, b = b, a
+		}
+		buf = append(buf, Scanline{y, a, b, 0xffff})
+	}
+	return buf
+}
+
+func rasterizeTriangleTop(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
+	s1 := float64(x3-x1) / float64(y3-y1)
+	s2 := float64(x3-x2) / float64(y3-y2)
+	ax := float64(x3)
+	bx := float64(x3)
+	for y := y3; y > y1; y-- {
+		ax -= s1
+		bx -= s2
+		a := int(ax)
+		b := int(bx)
+		if a > b {
+			a, b = b, a
+		}
+		buf = append(buf, Scanline{y, a, b, 0xffff})
+	}
+	return buf
+}
