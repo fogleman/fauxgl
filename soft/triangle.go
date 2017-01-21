@@ -73,7 +73,43 @@ func (t *Triangle) FixNormals() {
 	}
 }
 
+func (t *Triangle) IsClockwise() bool {
+	var sum float64
+	sum += (t.V2.X - t.V1.X) * (t.V2.Y + t.V1.Y)
+	sum += (t.V3.X - t.V2.X) * (t.V3.Y + t.V2.Y)
+	sum += (t.V1.X - t.V3.X) * (t.V1.Y + t.V3.Y)
+	return sum >= 0
+}
+
 func (t *Triangle) Rasterize() []Scanline {
+	box := t.BoundingBox()
+	min := box.Min.Floor()
+	max := box.Max.Ceil()
+	x1 := int(min.X)
+	x2 := int(max.X)
+	y1 := int(min.Y)
+	y2 := int(max.Y)
+	var lines []Scanline
+	for y := y1; y <= y2; y++ {
+		var previous uint32
+		for x := x1; x <= x2; x++ {
+			p := TrianglePixelCoverage(t, x, y)
+			a := uint32(p * 0xffff)
+			if a == 0 {
+				continue
+			}
+			if a == previous {
+				lines[len(lines)-1].X2 = x
+			} else {
+				lines = append(lines, Scanline{y, x, x, a})
+			}
+			previous = a
+		}
+	}
+	return lines
+}
+
+func (t *Triangle) RasterizeFast() []Scanline {
 	x1 := int(t.V1.X)
 	y1 := int(t.V1.Y)
 	x2 := int(t.V2.X)
@@ -114,14 +150,15 @@ func rasterizeTriangleBottom(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanl
 	s2 := float64(x3-x1) / float64(y3-y1)
 	ax := float64(x1)
 	bx := float64(x1)
+	if s1 > s2 {
+		ax, bx = bx, ax
+		s1, s2 = s2, s1
+	}
 	for y := y1; y <= y2; y++ {
 		a := int(ax)
 		b := int(bx)
 		ax += s1
 		bx += s2
-		if a > b {
-			a, b = b, a
-		}
 		buf = append(buf, Scanline{y, a, b, 0xffff})
 	}
 	return buf
@@ -132,14 +169,15 @@ func rasterizeTriangleTop(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline
 	s2 := float64(x3-x2) / float64(y3-y2)
 	ax := float64(x3)
 	bx := float64(x3)
+	if s1 < s2 {
+		ax, bx = bx, ax
+		s1, s2 = s2, s1
+	}
 	for y := y3; y > y1; y-- {
 		ax -= s1
 		bx -= s2
 		a := int(ax)
 		b := int(bx)
-		if a > b {
-			a, b = b, a
-		}
 		buf = append(buf, Scanline{y, a, b, 0xffff})
 	}
 	return buf

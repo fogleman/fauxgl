@@ -59,6 +59,10 @@ func (a Vector) Cross(b Vector) Vector {
 	return Vector{x, y, z}
 }
 
+func (a Vector) Cross2D(b Vector) float64 {
+	return a.X*b.Y - a.Y*b.X
+}
+
 func (a Vector) Normalize() Vector {
 	d := a.Length()
 	return Vector{a.X / d, a.Y / d, a.Z / d}
@@ -118,6 +122,14 @@ func (a Vector) Min(b Vector) Vector {
 
 func (a Vector) Max(b Vector) Vector {
 	return Vector{math.Max(a.X, b.X), math.Max(a.Y, b.Y), math.Max(a.Z, b.Z)}
+}
+
+func (a Vector) Floor() Vector {
+	return Vector{math.Floor(a.X), math.Floor(a.Y), math.Floor(a.Z)}
+}
+
+func (a Vector) Ceil() Vector {
+	return Vector{math.Ceil(a.X), math.Ceil(a.Y), math.Ceil(a.Z)}
 }
 
 func (a Vector) MinComponent() float64 {
