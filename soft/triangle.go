@@ -1,4 +1,4 @@
-package sr
+package soft
 
 type Triangle struct {
 	V1, V2, V3 Vector

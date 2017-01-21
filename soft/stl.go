@@ -1,4 +1,4 @@
-package sr
+package soft
 
 import (
 	"bufio"

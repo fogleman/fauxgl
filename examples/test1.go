@@ -6,7 +6,7 @@ import (
 	"image/color"
 
 	"github.com/fogleman/gg"
-	. "github.com/fogleman/sr/sr"
+	. "github.com/fogleman/soft/soft"
 )
 
 const (

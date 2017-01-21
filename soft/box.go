@@ -1,4 +1,4 @@
-package sr
+package soft
 
 type Box struct {
 	Min, Max Vector
