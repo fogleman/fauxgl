@@ -72,17 +72,15 @@ func Perspective(fovy, aspect, near, far float64) Matrix {
 }
 
 func LookAt(eye, center, up Vector) Matrix {
-	up = up.Normalize()
-	f := center.Sub(eye).Normalize()
-	s := f.Cross(up).Normalize()
-	u := s.Cross(f).Normalize()
-	m := Matrix{
-		s.X, u.X, -f.X, eye.X,
-		s.Y, u.Y, -f.Y, eye.Y,
-		s.Z, u.Z, -f.Z, eye.Z,
+	z := eye.Sub(center).Normalize()
+	x := up.Cross(z).Normalize()
+	y := z.Cross(x)
+	return Matrix{
+		x.X, x.Y, x.Z, -x.Dot(eye),
+		y.X, y.Y, y.Z, -y.Dot(eye),
+		z.X, z.Y, z.Z, -z.Dot(eye),
 		0, 0, 0, 1,
 	}
-	return m.Inverse() // TODO: remove need for inverse
 }
 
 func (m Matrix) Translate(v Vector) Matrix {

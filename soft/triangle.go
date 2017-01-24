@@ -39,6 +39,9 @@ func (t *Triangle) Barycentric(p Vector) Vector {
 	v0 := t.V2.Sub(t.V1)
 	v1 := t.V3.Sub(t.V1)
 	v2 := p.Sub(t.V1)
+	v0.Z = 0 // TODO: fix
+	v1.Z = 0
+	v2.Z = 0
 	d00 := v0.Dot(v0)
 	d01 := v0.Dot(v1)
 	d11 := v1.Dot(v1)

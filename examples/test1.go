@@ -9,8 +9,8 @@ const (
 	width  = 1024
 	height = 1024
 	fovy   = 45
-	near   = 0.1
-	far    = 100
+	near   = 1
+	far    = 10
 )
 
 var (
@@ -30,13 +30,12 @@ func main() {
 	mesh.SmoothNormalsThreshold(Radians(30))
 
 	aspect := float64(width) / float64(height)
-	matrix := LookAt(eye, center, up)
-	matrix = matrix.Perspective(fovy, aspect, near, far)
+	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 	screen := Scale(V(1, -1, 1)).Translate(V(1, 1, 0)).Scale(V(width/2, height/2, 1))
 
 	dc := gg.NewContext(width, height)
-	dc.SetRGB(0, 0, 0)
-	dc.Clear()
+	// dc.SetRGB(0, 0, 0)
+	// dc.Clear()
 
 	depth := make([]float64, width*height)
 	for i := range depth {
@@ -46,18 +45,15 @@ func main() {
 	light := V(1, -0.5, 0.5).Normalize()
 
 	for _, t := range mesh.Triangles {
-		v1 := t.V1
-		v2 := t.V2
-		v3 := t.V3
-		w1 := matrix.MulPositionW(v1)
-		w2 := matrix.MulPositionW(v2)
-		w3 := matrix.MulPositionW(v3)
+		w1 := matrix.MulPositionW(t.V1)
 		if !ClipBox.Contains(w1) {
 			continue
 		}
+		w2 := matrix.MulPositionW(t.V2)
 		if !ClipBox.Contains(w2) {
 			continue
 		}
+		w3 := matrix.MulPositionW(t.V3)
 		if !ClipBox.Contains(w3) {
 			continue
 		}
