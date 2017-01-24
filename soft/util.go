@@ -45,6 +45,16 @@ func ParseFloats(items []string) []float64 {
 	return result
 }
 
+func Clamp(x, lo, hi float64) float64 {
+	if x < lo {
+		return lo
+	}
+	if x > hi {
+		return hi
+	}
+	return x
+}
+
 func ClampInt(x, lo, hi int) int {
 	if x < lo {
 		return lo

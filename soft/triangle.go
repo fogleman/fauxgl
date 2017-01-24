@@ -27,16 +27,16 @@ func (t *Triangle) Normal() Vector {
 }
 
 func (t *Triangle) NormalAt(p Vector) Vector {
-	u, v, w := t.Barycentric(p)
+	b := p //t.Barycentric(p)
 	n := Vector{}
-	n = n.Add(t.N1.MulScalar(u))
-	n = n.Add(t.N2.MulScalar(v))
-	n = n.Add(t.N3.MulScalar(w))
+	n = n.Add(t.N1.MulScalar(b.X))
+	n = n.Add(t.N2.MulScalar(b.Y))
+	n = n.Add(t.N3.MulScalar(b.Z))
 	n = n.Normalize()
 	return n
 }
 
-func (t *Triangle) Barycentric(p Vector) (u, v, w float64) {
+func (t *Triangle) Barycentric(p Vector) Vector {
 	v0 := t.V2.Sub(t.V1)
 	v1 := t.V3.Sub(t.V1)
 	v2 := p.Sub(t.V1)
@@ -46,10 +46,10 @@ func (t *Triangle) Barycentric(p Vector) (u, v, w float64) {
 	d20 := v2.Dot(v0)
 	d21 := v2.Dot(v1)
 	d := d00*d11 - d01*d01
-	v = (d11*d20 - d01*d21) / d
-	w = (d00*d21 - d01*d20) / d
-	u = 1 - v - w
-	return
+	v := (d11*d20 - d01*d21) / d
+	w := (d00*d21 - d01*d20) / d
+	u := 1 - v - w
+	return Vector{u, v, w}
 }
 
 func (t *Triangle) FixNormals() {
@@ -66,7 +66,7 @@ func (t *Triangle) FixNormals() {
 	}
 }
 
-func (t *Triangle) Rasterize() []Scanline {
+func (t *Triangle) Rasterize() []Fragment {
 	box := t.BoundingBox()
 	min := box.Min.Floor()
 	max := box.Max.Ceil()
@@ -74,35 +74,18 @@ func (t *Triangle) Rasterize() []Scanline {
 	x2 := int(max.X)
 	y1 := int(min.Y)
 	y2 := int(max.Y)
-	var lines []Scanline
+	var fragments []Fragment
 	for y := y1; y <= y2; y++ {
-		var lo, hi int
-		var ok bool
 		for x := x1; x <= x2; x++ {
 			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
-			b1 := (p.X-t.V2.X)*(t.V1.Y-t.V2.Y)-(t.V1.X-t.V2.X)*(p.Y-t.V2.Y) < 0
-			b2 := (p.X-t.V3.X)*(t.V2.Y-t.V3.Y)-(t.V2.X-t.V3.X)*(p.Y-t.V3.Y) < 0
-			b3 := (p.X-t.V1.X)*(t.V3.Y-t.V1.Y)-(t.V3.X-t.V1.X)*(p.Y-t.V1.Y) < 0
-			if b1 == b2 && b2 == b3 {
-				lo = x
-				ok = true
-				break
+			b := t.Barycentric(p)
+			if b.X < 0 || b.Y < 0 || b.Z < 0 {
+				continue
 			}
+			z := b.X*t.V1.Z + b.Y*t.V2.Z + b.Z*t.V3.Z
+			f := Fragment{Vector{float64(x), float64(y), z}, b}
+			fragments = append(fragments, f)
 		}
-		if !ok {
-			continue
-		}
-		for x := x2; x >= x1; x-- {
-			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
-			b1 := (p.X-t.V2.X)*(t.V1.Y-t.V2.Y)-(t.V1.X-t.V2.X)*(p.Y-t.V2.Y) < 0
-			b2 := (p.X-t.V3.X)*(t.V2.Y-t.V3.Y)-(t.V2.X-t.V3.X)*(p.Y-t.V3.Y) < 0
-			b3 := (p.X-t.V1.X)*(t.V3.Y-t.V1.Y)-(t.V3.X-t.V1.X)*(p.Y-t.V1.Y) < 0
-			if b1 == b2 && b2 == b3 {
-				hi = x
-				break
-			}
-		}
-		lines = append(lines, Scanline{y, lo, hi, 0xffff})
 	}
-	return lines
+	return fragments
 }
