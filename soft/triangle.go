@@ -26,8 +26,7 @@ func (t *Triangle) Normal() Vector {
 	return e1.Cross(e2).Normalize()
 }
 
-func (t *Triangle) NormalAt(p Vector) Vector {
-	b := p //t.Barycentric(p)
+func (t *Triangle) BarycentricNormal(b Vector) Vector {
 	n := Vector{}
 	n = n.Add(t.N1.MulScalar(b.X))
 	n = n.Add(t.N2.MulScalar(b.Y))

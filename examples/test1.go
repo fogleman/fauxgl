@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/fogleman/gg"
 	. "github.com/fogleman/soft/soft"
 )
@@ -28,7 +26,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(len(mesh.Triangles))
 	mesh.BiUnitCube()
 	mesh.SmoothNormalsThreshold(Radians(30))
 
@@ -78,10 +75,11 @@ func main() {
 				continue
 			}
 			depth[i] = z
-			l := Clamp(t.NormalAt(f.Barycentric).Dot(light), 0, 1)
+			l := Clamp(t.BarycentricNormal(f.Barycentric).Dot(light), 0, 1)
 			dc.SetRGB(l, l, l)
 			dc.SetPixel(x, y)
 		}
 	}
+
 	dc.SavePNG("out.png")
 }
