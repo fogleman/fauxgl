@@ -20,13 +20,6 @@ func (t *Triangle) BoundingBox() Box {
 	return Box{min, max}
 }
 
-func (t *Triangle) Area() float64 {
-	e1 := t.V2.Sub(t.V1)
-	e2 := t.V3.Sub(t.V1)
-	n := e1.Cross(e2)
-	return n.Length() / 2
-}
-
 func (t *Triangle) Normal() Vector {
 	e1 := t.V2.Sub(t.V1)
 	e2 := t.V3.Sub(t.V1)
@@ -73,14 +66,6 @@ func (t *Triangle) FixNormals() {
 	}
 }
 
-func (t *Triangle) IsClockwise() bool {
-	var sum float64
-	sum += (t.V2.X - t.V1.X) * (t.V2.Y + t.V1.Y)
-	sum += (t.V3.X - t.V2.X) * (t.V3.Y + t.V2.Y)
-	sum += (t.V1.X - t.V3.X) * (t.V1.Y + t.V3.Y)
-	return sum >= 0
-}
-
 func (t *Triangle) Rasterize() []Scanline {
 	box := t.BoundingBox()
 	min := box.Min.Floor()
@@ -91,94 +76,33 @@ func (t *Triangle) Rasterize() []Scanline {
 	y2 := int(max.Y)
 	var lines []Scanline
 	for y := y1; y <= y2; y++ {
-		var previous uint32
+		var lo, hi int
+		var ok bool
 		for x := x1; x <= x2; x++ {
-			p := TrianglePixelCoverage(t, x, y)
-			a := uint32(p * 0xffff)
-			if a == 0 {
-				continue
+			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
+			b1 := (p.X-t.V2.X)*(t.V1.Y-t.V2.Y)-(t.V1.X-t.V2.X)*(p.Y-t.V2.Y) < 0
+			b2 := (p.X-t.V3.X)*(t.V2.Y-t.V3.Y)-(t.V2.X-t.V3.X)*(p.Y-t.V3.Y) < 0
+			b3 := (p.X-t.V1.X)*(t.V3.Y-t.V1.Y)-(t.V3.X-t.V1.X)*(p.Y-t.V1.Y) < 0
+			if b1 == b2 && b2 == b3 {
+				lo = x
+				ok = true
+				break
 			}
-			if a == previous {
-				lines[len(lines)-1].X2 = x
-			} else {
-				lines = append(lines, Scanline{y, x, x, a})
-			}
-			previous = a
 		}
+		if !ok {
+			continue
+		}
+		for x := x2; x >= x1; x-- {
+			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
+			b1 := (p.X-t.V2.X)*(t.V1.Y-t.V2.Y)-(t.V1.X-t.V2.X)*(p.Y-t.V2.Y) < 0
+			b2 := (p.X-t.V3.X)*(t.V2.Y-t.V3.Y)-(t.V2.X-t.V3.X)*(p.Y-t.V3.Y) < 0
+			b3 := (p.X-t.V1.X)*(t.V3.Y-t.V1.Y)-(t.V3.X-t.V1.X)*(p.Y-t.V1.Y) < 0
+			if b1 == b2 && b2 == b3 {
+				hi = x
+				break
+			}
+		}
+		lines = append(lines, Scanline{y, lo, hi, 0xffff})
 	}
 	return lines
-}
-
-func (t *Triangle) RasterizeFast() []Scanline {
-	x1 := int(t.V1.X)
-	y1 := int(t.V1.Y)
-	x2 := int(t.V2.X)
-	y2 := int(t.V2.Y)
-	x3 := int(t.V3.X)
-	y3 := int(t.V3.Y)
-	return rasterizeTriangle(x1, y1, x2, y2, x3, y3, nil)
-}
-
-func rasterizeTriangle(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
-	if y1 > y3 {
-		x1, x3 = x3, x1
-		y1, y3 = y3, y1
-	}
-	if y1 > y2 {
-		x1, x2 = x2, x1
-		y1, y2 = y2, y1
-	}
-	if y2 > y3 {
-		x2, x3 = x3, x2
-		y2, y3 = y3, y2
-	}
-	if y2 == y3 {
-		return rasterizeTriangleBottom(x1, y1, x2, y2, x3, y3, buf)
-	} else if y1 == y2 {
-		return rasterizeTriangleTop(x1, y1, x2, y2, x3, y3, buf)
-	} else {
-		x4 := x1 + int((float64(y2-y1)/float64(y3-y1))*float64(x3-x1))
-		y4 := y2
-		buf = rasterizeTriangleBottom(x1, y1, x2, y2, x4, y4, buf)
-		buf = rasterizeTriangleTop(x2, y2, x4, y4, x3, y3, buf)
-		return buf
-	}
-}
-
-func rasterizeTriangleBottom(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
-	s1 := float64(x2-x1) / float64(y2-y1)
-	s2 := float64(x3-x1) / float64(y3-y1)
-	ax := float64(x1)
-	bx := float64(x1)
-	if s1 > s2 {
-		ax, bx = bx, ax
-		s1, s2 = s2, s1
-	}
-	for y := y1; y <= y2; y++ {
-		a := int(ax)
-		b := int(bx)
-		ax += s1
-		bx += s2
-		buf = append(buf, Scanline{y, a, b, 0xffff})
-	}
-	return buf
-}
-
-func rasterizeTriangleTop(x1, y1, x2, y2, x3, y3 int, buf []Scanline) []Scanline {
-	s1 := float64(x3-x1) / float64(y3-y1)
-	s2 := float64(x3-x2) / float64(y3-y2)
-	ax := float64(x3)
-	bx := float64(x3)
-	if s1 < s2 {
-		ax, bx = bx, ax
-		s1, s2 = s2, s1
-	}
-	for y := y3; y > y1; y-- {
-		ax -= s1
-		bx -= s2
-		a := int(ax)
-		b := int(bx)
-		buf = append(buf, Scanline{y, a, b, 0xffff})
-	}
-	return buf
 }

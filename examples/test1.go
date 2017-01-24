@@ -64,7 +64,7 @@ func main() {
 		s3 := screen.MulPosition(w3)
 		t := NewTriangle(s1, s2, s3)
 		lines := t.Rasterize()
-		c := color.NRGBA{0, 0, 0, 128}
+		c := color.NRGBA{0, 0, 0, 64}
 		DrawScanlines(dc.Image().(*image.RGBA), c, lines)
 	}
 	dc.SavePNG("out.png")

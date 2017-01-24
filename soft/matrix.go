@@ -82,7 +82,7 @@ func LookAt(eye, center, up Vector) Matrix {
 		s.Z, u.Z, -f.Z, eye.Z,
 		0, 0, 0, 1,
 	}
-	return m.Inverse()
+	return m.Inverse() // TODO: remove need for inverse
 }
 
 func (m Matrix) Translate(v Vector) Matrix {

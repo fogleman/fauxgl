@@ -9,10 +9,6 @@ import (
 	"strconv"
 )
 
-func NearZero(x float64) bool {
-	return math.Abs(x) < 1e-9
-}
-
 func Radians(degrees float64) float64 {
 	return degrees * math.Pi / 180
 }
