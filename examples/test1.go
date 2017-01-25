@@ -1,6 +1,9 @@
 package main
 
 import (
+	"image"
+	"image/color"
+
 	"github.com/fogleman/gg"
 	. "github.com/fogleman/soft/soft"
 )
@@ -23,6 +26,7 @@ var ClipBox = Box{V(-1, -1, -1), V(1, 1, 1)}
 
 func main() {
 	mesh, err := LoadSTL("examples/bunny.stl")
+	// mesh, err := LoadPLY("examples/dragon.ply")
 	if err != nil {
 		panic(err)
 	}
@@ -76,6 +80,33 @@ func main() {
 			dc.SetPixel(x, y)
 		}
 	}
+
+	lo := 1.0
+	hi := -1.0
+	for _, d := range depth {
+		if d == 1 {
+			continue
+		}
+		if d < lo {
+			lo = d
+		}
+		if d > hi {
+			hi = d
+		}
+	}
+
+	im := image.NewGray(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			d := depth[y*width+x]
+			if d == 1 {
+				continue
+			}
+			p := (d - lo) / (hi - lo)
+			im.SetGray(x, y, color.Gray{uint8(p * 0xff)})
+		}
+	}
+	SavePNG("depth.png", im)
 
 	dc.SavePNG("out.png")
 }
