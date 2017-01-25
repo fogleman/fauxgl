@@ -68,6 +68,14 @@ func (t *Triangle) FixNormals() {
 	}
 }
 
+func (t *Triangle) IsClockwise() bool {
+	var sum float64
+	sum += (t.V2.X - t.V1.X) * (t.V2.Y + t.V1.Y)
+	sum += (t.V3.X - t.V2.X) * (t.V3.Y + t.V2.Y)
+	sum += (t.V1.X - t.V3.X) * (t.V1.Y + t.V3.Y)
+	return sum >= 0
+}
+
 func (t *Triangle) Rasterize() []Fragment {
 	box := t.BoundingBox()
 	min := box.Min.Floor()

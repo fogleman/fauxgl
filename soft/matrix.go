@@ -107,6 +107,10 @@ func (m Matrix) Perspective(fovy, aspect, near, far float64) Matrix {
 	return Perspective(fovy, aspect, near, far).Mul(m)
 }
 
+func (m Matrix) LookAt(eye, center, up Vector) Matrix {
+	return LookAt(eye, center, up).Mul(m)
+}
+
 func (a Matrix) Mul(b Matrix) Matrix {
 	m := Matrix{}
 	m.x00 = a.x00*b.x00 + a.x01*b.x10 + a.x02*b.x20 + a.x03*b.x30
