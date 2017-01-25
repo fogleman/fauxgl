@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
 	"math"
+	"time"
 
-	"github.com/fogleman/gg"
 	. "github.com/fogleman/soft/soft"
 )
 
 const (
-	width  = 1024 * 2
-	height = 1024 * 2
+	width  = 1024 * 1
+	height = 1024 * 1
 	fovy   = 50
 	near   = 1
 	far    = 10
@@ -34,8 +37,12 @@ func main() {
 	mesh.BiUnitCube()
 	mesh.SmoothNormalsThreshold(Radians(30))
 
+	var fragments []Fragment
+	im := image.NewRGBA(image.Rect(0, 0, width, height))
+	depth := make([]float64, width*height)
+
 	for frame := 0; frame < 72; frame++ {
-		fmt.Println(frame)
+		start := time.Now()
 
 		aspect := float64(width) / float64(height)
 		matrix := Rotate(up, Radians(float64(frame*5))).LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
@@ -44,15 +51,14 @@ func main() {
 		light = V(1, -1, 0.5).Normalize()
 		light = Rotate(up, Radians(-float64(frame*5))).MulDirection(light)
 
-		dc := gg.NewContext(width, height)
-		dc.SetRGB(1, 1, 1)
-		dc.Clear()
+		src := image.NewUniform(color.White)
+		draw.Draw(im, im.Bounds(), src, image.ZP, draw.Src)
 
-		depth := make([]float64, width*height)
 		for i := range depth {
 			depth[i] = 1
 		}
 
+		s := Triangle{}
 		for _, t := range mesh.Triangles {
 			w1 := matrix.MulPositionW(t.V1)
 			if !ClipBox.Contains(w1) {
@@ -66,11 +72,10 @@ func main() {
 			if !ClipBox.Contains(w3) {
 				continue
 			}
-			s1 := screen.MulPosition(w1)
-			s2 := screen.MulPosition(w2)
-			s3 := screen.MulPosition(w3)
-			s := NewTriangle(s1, s2, s3)
-			fragments := s.Rasterize()
+			s.V1 = screen.MulPosition(w1)
+			s.V2 = screen.MulPosition(w2)
+			s.V3 = screen.MulPosition(w3)
+			fragments = s.Rasterize(fragments)
 			for _, f := range fragments {
 				x := int(f.X)
 				y := int(f.Y)
@@ -84,11 +89,14 @@ func main() {
 					continue
 				}
 				depth[i] = z
-				dc.SetRGB(l*0.275, l*0.537, l*0.4)
-				dc.SetPixel(x, y)
+				c := color.RGBA{uint8(255 * l * 0.275), uint8(255 * l * 0.537), uint8(255 * l * 0.4), 255}
+				im.SetRGBA(x, y, c)
 			}
 		}
 
-		dc.SavePNG(fmt.Sprintf("out%03d.png", frame))
+		elapsed := time.Since(start)
+		fmt.Println(frame, elapsed)
+
+		SavePNG(fmt.Sprintf("out%03d.png", frame), im)
 	}
 }

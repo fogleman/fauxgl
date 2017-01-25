@@ -35,25 +35,6 @@ func (t *Triangle) BarycentricNormal(b Vector) Vector {
 	return n
 }
 
-func (t *Triangle) Barycentric(p Vector) Vector {
-	v0 := t.V2.Sub(t.V1)
-	v1 := t.V3.Sub(t.V1)
-	v2 := p.Sub(t.V1)
-	v0.Z = 0 // TODO: fix
-	v1.Z = 0
-	v2.Z = 0
-	d00 := v0.Dot(v0)
-	d01 := v0.Dot(v1)
-	d11 := v1.Dot(v1)
-	d20 := v2.Dot(v0)
-	d21 := v2.Dot(v1)
-	d := d00*d11 - d01*d01
-	v := (d11*d20 - d01*d21) / d
-	w := (d00*d21 - d01*d20) / d
-	u := 1 - v - w
-	return Vector{u, v, w}
-}
-
 func (t *Triangle) FixNormals() {
 	n := t.Normal()
 	zero := Vector{}
@@ -68,15 +49,8 @@ func (t *Triangle) FixNormals() {
 	}
 }
 
-func (t *Triangle) IsClockwise() bool {
-	var sum float64
-	sum += (t.V2.X - t.V1.X) * (t.V2.Y + t.V1.Y)
-	sum += (t.V3.X - t.V2.X) * (t.V3.Y + t.V2.Y)
-	sum += (t.V1.X - t.V3.X) * (t.V1.Y + t.V3.Y)
-	return sum >= 0
-}
-
-func (t *Triangle) Rasterize() []Fragment {
+// TODO: move 2D stuff out of this 3D file
+func (t *Triangle) Rasterize(buffer []Fragment) []Fragment {
 	box := t.BoundingBox()
 	min := box.Min.Floor()
 	max := box.Max.Ceil()
@@ -84,14 +58,32 @@ func (t *Triangle) Rasterize() []Fragment {
 	x2 := int(max.X)
 	y1 := int(min.Y)
 	y2 := int(max.Y)
-	var fragments []Fragment
+	fragments := buffer[:0]
+	v0 := t.V2.Sub(t.V1)
+	v1 := t.V3.Sub(t.V1)
+	d00 := v0.X*v0.X + v0.Y*v0.Y
+	d01 := v0.X*v1.X + v0.Y*v1.Y
+	d11 := v1.X*v1.X + v1.Y*v1.Y
 	for y := y1; y <= y2; y++ {
 		for x := x1; x <= x2; x++ {
 			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
-			b := t.Barycentric(p)
-			if b.X < 0 || b.Y < 0 || b.Z < 0 {
+			v2 := p.Sub(t.V1)
+			d20 := v2.X*v0.X + v2.Y*v0.Y
+			d21 := v2.X*v1.X + v2.Y*v1.Y
+			d := d00*d11 - d01*d01
+			v := (d11*d20 - d01*d21) / d
+			if v < 0 {
 				continue
 			}
+			w := (d00*d21 - d01*d20) / d
+			if w < 0 {
+				continue
+			}
+			u := 1 - v - w
+			if u < 0 {
+				continue
+			}
+			b := Vector{u, v, w}
 			z := b.X*t.V1.Z + b.Y*t.V2.Z + b.Z*t.V3.Z
 			f := Fragment{Vector{float64(x), float64(y), z}, b}
 			fragments = append(fragments, f)
