@@ -5,6 +5,7 @@ type Vertex struct {
 	Normal   Vector
 	Texture  Vector
 	Color    Vector
+	Output   VectorW
 }
 
 var zeroVector = Vector{}

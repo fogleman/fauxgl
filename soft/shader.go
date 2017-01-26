@@ -21,7 +21,7 @@ func NewDefaultShader(matrix Matrix, light, camera, color Vector) Shader {
 }
 
 func (shader *DefaultShader) Vertex(v Vertex) Vertex {
-	v.Position = shader.Matrix.MulPositionW(v.Position)
+	v.Output = shader.Matrix.MulPositionW(v.Position)
 	return v
 }
 
