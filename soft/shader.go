@@ -24,5 +24,5 @@ func (shader *DefaultShader) Vertex(v Vertex) Vertex {
 
 func (shader *DefaultShader) Fragment(v Vertex) Vector {
 	light := Clamp(v.Normal.Dot(shader.Light), 0, 1)
-	return v.Color.MulScalar(light)
+	return shader.Color.MulScalar(light)
 }
