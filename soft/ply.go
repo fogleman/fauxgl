@@ -161,11 +161,11 @@ func readFormatAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 					i1, _ := strconv.ParseInt(f[fi+1], 0, 0)
 					i2, _ := strconv.ParseInt(f[fi+2], 0, 0)
 					i3, _ := strconv.ParseInt(f[fi+3], 0, 0)
-					v1 := vertexes[i1]
-					v2 := vertexes[i2]
-					v3 := vertexes[i3]
-					t := NewTriangle(v1, v2, v3)
-					triangles = append(triangles, t)
+					t := Triangle{}
+					t.V1.Position = vertexes[i1]
+					t.V2.Position = vertexes[i2]
+					t.V3.Position = vertexes[i3]
+					triangles = append(triangles, &t)
 					fi += 3
 				}
 				fi++

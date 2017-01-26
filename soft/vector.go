@@ -1,6 +1,7 @@
 package soft
 
 import (
+	"image/color"
 	"math"
 	"math/rand"
 )
@@ -30,6 +31,13 @@ func RandomUnitVector(rnd *rand.Rand) Vector {
 		}
 		return Vector{x, y, z}.Normalize()
 	}
+}
+
+func (a Vector) NRGBA() color.NRGBA {
+	r := uint8(255 * a.X)
+	g := uint8(255 * a.Y)
+	b := uint8(255 * a.Z)
+	return color.NRGBA{r, g, b, 255}
 }
 
 func (a Vector) Length() float64 {

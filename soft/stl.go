@@ -66,10 +66,12 @@ func loadSTLA(file *os.File) (*Mesh, error) {
 	}
 	var triangles []*Triangle
 	for i := 0; i < len(vertexes); i += 3 {
-		v1 := vertexes[i+0]
-		v2 := vertexes[i+1]
-		v3 := vertexes[i+2]
-		triangles = append(triangles, NewTriangle(v1, v2, v3))
+		t := Triangle{}
+		t.V1.Position = vertexes[i+0]
+		t.V2.Position = vertexes[i+1]
+		t.V3.Position = vertexes[i+2]
+		t.FixNormals()
+		triangles = append(triangles, &t)
 	}
 	return NewMesh(triangles), scanner.Err()
 }
@@ -86,10 +88,12 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 		if err := binary.Read(file, binary.LittleEndian, &d); err != nil {
 			return nil, err
 		}
-		v1 := Vector{float64(d.V1[0]), float64(d.V1[1]), float64(d.V1[2])}
-		v2 := Vector{float64(d.V2[0]), float64(d.V2[1]), float64(d.V2[2])}
-		v3 := Vector{float64(d.V3[0]), float64(d.V3[1]), float64(d.V3[2])}
-		triangles[i] = NewTriangle(v1, v2, v3)
+		t := Triangle{}
+		t.V1.Position = Vector{float64(d.V1[0]), float64(d.V1[1]), float64(d.V1[2])}
+		t.V2.Position = Vector{float64(d.V2[0]), float64(d.V2[1]), float64(d.V2[2])}
+		t.V3.Position = Vector{float64(d.V3[0]), float64(d.V3[1]), float64(d.V3[2])}
+		t.FixNormals()
+		triangles[i] = &t
 	}
 	return NewMesh(triangles), nil
 }
@@ -111,15 +115,15 @@ func SaveSTL(path string, mesh *Mesh) error {
 		d.N[0] = float32(n.X)
 		d.N[1] = float32(n.Y)
 		d.N[2] = float32(n.Z)
-		d.V1[0] = float32(triangle.V1.X)
-		d.V1[1] = float32(triangle.V1.Y)
-		d.V1[2] = float32(triangle.V1.Z)
-		d.V2[0] = float32(triangle.V2.X)
-		d.V2[1] = float32(triangle.V2.Y)
-		d.V2[2] = float32(triangle.V2.Z)
-		d.V3[0] = float32(triangle.V3.X)
-		d.V3[1] = float32(triangle.V3.Y)
-		d.V3[2] = float32(triangle.V3.Z)
+		d.V1[0] = float32(triangle.V1.Position.X)
+		d.V1[1] = float32(triangle.V1.Position.Y)
+		d.V1[2] = float32(triangle.V1.Position.Z)
+		d.V2[0] = float32(triangle.V2.Position.X)
+		d.V2[1] = float32(triangle.V2.Position.Y)
+		d.V2[2] = float32(triangle.V2.Position.Z)
+		d.V3[0] = float32(triangle.V3.Position.X)
+		d.V3[1] = float32(triangle.V3.Position.Y)
+		d.V3[2] = float32(triangle.V3.Position.Z)
 		if err := binary.Write(file, binary.LittleEndian, &d); err != nil {
 			return err
 		}

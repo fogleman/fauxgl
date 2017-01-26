@@ -53,31 +53,31 @@ func (m *Mesh) SmoothNormalsThreshold(radians float64) {
 	threshold := math.Cos(radians)
 	lookup := make(map[Vector][]Vector)
 	for _, t := range m.Triangles {
-		lookup[t.V1] = append(lookup[t.V1], t.N1)
-		lookup[t.V2] = append(lookup[t.V2], t.N2)
-		lookup[t.V3] = append(lookup[t.V3], t.N3)
+		lookup[t.V1.Position] = append(lookup[t.V1.Position], t.V1.Normal)
+		lookup[t.V2.Position] = append(lookup[t.V2.Position], t.V2.Normal)
+		lookup[t.V3.Position] = append(lookup[t.V3.Position], t.V3.Normal)
 	}
 	for _, t := range m.Triangles {
-		t.N1 = smoothNormalsThreshold(t.N1, lookup[t.V1], threshold)
-		t.N2 = smoothNormalsThreshold(t.N2, lookup[t.V2], threshold)
-		t.N3 = smoothNormalsThreshold(t.N3, lookup[t.V3], threshold)
+		t.V1.Normal = smoothNormalsThreshold(t.V1.Normal, lookup[t.V1.Position], threshold)
+		t.V2.Normal = smoothNormalsThreshold(t.V2.Normal, lookup[t.V2.Position], threshold)
+		t.V3.Normal = smoothNormalsThreshold(t.V3.Normal, lookup[t.V3.Position], threshold)
 	}
 }
 
 func (m *Mesh) SmoothNormals() {
 	lookup := make(map[Vector]Vector)
 	for _, t := range m.Triangles {
-		lookup[t.V1] = lookup[t.V1].Add(t.N1)
-		lookup[t.V2] = lookup[t.V2].Add(t.N2)
-		lookup[t.V3] = lookup[t.V3].Add(t.N3)
+		lookup[t.V1.Position] = lookup[t.V1.Position].Add(t.V1.Normal)
+		lookup[t.V2.Position] = lookup[t.V2.Position].Add(t.V2.Normal)
+		lookup[t.V3.Position] = lookup[t.V3.Position].Add(t.V3.Normal)
 	}
 	for k, v := range lookup {
 		lookup[k] = v.Normalize()
 	}
 	for _, t := range m.Triangles {
-		t.N1 = lookup[t.V1]
-		t.N2 = lookup[t.V2]
-		t.N3 = lookup[t.V3]
+		t.V1.Normal = lookup[t.V1.Position]
+		t.V2.Normal = lookup[t.V2.Position]
+		t.V3.Normal = lookup[t.V3.Position]
 	}
 }
 
@@ -107,12 +107,12 @@ func (m *Mesh) FitInside(box Box, anchor Vector) {
 
 func (m *Mesh) Transform(matrix Matrix) {
 	for _, t := range m.Triangles {
-		t.V1 = matrix.MulPosition(t.V1)
-		t.V2 = matrix.MulPosition(t.V2)
-		t.V3 = matrix.MulPosition(t.V3)
-		t.N1 = matrix.MulDirection(t.N1)
-		t.N2 = matrix.MulDirection(t.N2)
-		t.N3 = matrix.MulDirection(t.N3)
+		t.V1.Position = matrix.MulPosition(t.V1.Position)
+		t.V2.Position = matrix.MulPosition(t.V2.Position)
+		t.V3.Position = matrix.MulPosition(t.V3.Position)
+		t.V1.Normal = matrix.MulDirection(t.V1.Normal)
+		t.V2.Normal = matrix.MulDirection(t.V2.Normal)
+		t.V3.Normal = matrix.MulDirection(t.V3.Normal)
 	}
 	m.dirty()
 }

@@ -8,11 +8,11 @@ func BoxForTriangles(triangles []*Triangle) Box {
 	if len(triangles) == 0 {
 		return Box{}
 	}
-	min := triangles[0].V1
-	max := triangles[0].V1
+	min := triangles[0].V1.Position
+	max := triangles[0].V1.Position
 	for _, t := range triangles {
-		min = min.Min(t.V1).Min(t.V2).Min(t.V3)
-		max = max.Max(t.V1).Max(t.V2).Max(t.V3)
+		min = min.Min(t.V1.Position).Min(t.V2.Position).Min(t.V3.Position)
+		max = max.Max(t.V1.Position).Max(t.V2.Position).Max(t.V3.Position)
 	}
 	return Box{min, max}
 }

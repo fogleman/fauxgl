@@ -61,12 +61,12 @@ func LoadOBJ(path string) (*Mesh, error) {
 			for i := 1; i < len(fvs)-1; i++ {
 				i1, i2, i3 := 0, i, i+1
 				t := Triangle{}
-				t.V1 = vs[fvs[i1]]
-				t.V2 = vs[fvs[i2]]
-				t.V3 = vs[fvs[i3]]
-				t.N1 = vns[fvns[i1]]
-				t.N2 = vns[fvns[i2]]
-				t.N3 = vns[fvns[i3]]
+				t.V1.Position = vs[fvs[i1]]
+				t.V2.Position = vs[fvs[i2]]
+				t.V3.Position = vs[fvs[i3]]
+				t.V1.Normal = vns[fvns[i1]]
+				t.V2.Normal = vns[fvns[i2]]
+				t.V3.Normal = vns[fvns[i3]]
 				t.FixNormals()
 				triangles = append(triangles, &t)
 			}
