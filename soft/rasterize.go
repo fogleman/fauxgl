@@ -20,6 +20,9 @@ func Rasterize(p1, p2, p3 Vector, buffer []Fragment) []Fragment {
 			d20 := v2.X*v0.X + v2.Y*v0.Y
 			d21 := v2.X*v1.X + v2.Y*v1.Y
 			d := d00*d11 - d01*d01
+			if d == 0 {
+				continue
+			}
 			v := (d11*d20 - d01*d21) / d
 			if v < 0 {
 				continue
@@ -34,7 +37,7 @@ func Rasterize(p1, p2, p3 Vector, buffer []Fragment) []Fragment {
 			}
 			b := Vector{u, v, w}
 			z := b.X*p1.Z + b.Y*p2.Z + b.Z*p3.Z
-			f := Fragment{Vector{float64(x), float64(y), z}, b}
+			f := Fragment{x, y, z, b}
 			fragments = append(fragments, f)
 		}
 	}

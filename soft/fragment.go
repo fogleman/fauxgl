@@ -1,6 +1,7 @@
 package soft
 
 type Fragment struct {
-	Vector
+	X, Y        int
+	Depth       float64
 	Barycentric Vector
 }

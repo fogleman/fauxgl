@@ -63,11 +63,8 @@ func (dc *Context) DrawTriangle(t *Triangle, shader Shader) {
 	s3 := dc.screenMatrix.MulPosition(w3.Position)
 	dc.fragmentBuffer = Rasterize(s1, s2, s3, dc.fragmentBuffer)
 	for _, f := range dc.fragmentBuffer {
-		x := int(f.X)
-		y := int(f.Y)
-		z := f.Z
-		i := y*dc.Width + x
-		if z > dc.DepthBuffer[i] {
+		i := f.Y*dc.Width + f.X
+		if f.Depth > dc.DepthBuffer[i] {
 			continue
 		}
 		v := InterpolateVertexes(t.V1, t.V2, t.V3, f.Barycentric)
@@ -75,8 +72,8 @@ func (dc *Context) DrawTriangle(t *Triangle, shader Shader) {
 		if color == Discard {
 			continue
 		}
-		dc.DepthBuffer[i] = z
-		dc.ColorBuffer.SetNRGBA(x, y, color.NRGBA())
+		dc.DepthBuffer[i] = f.Depth
+		dc.ColorBuffer.SetNRGBA(f.X, f.Y, color.NRGBA())
 	}
 }
 

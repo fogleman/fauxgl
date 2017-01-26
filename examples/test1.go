@@ -33,9 +33,10 @@ func main() {
 
 	colors := make(map[Vector]Vector)
 	for _, t := range mesh.Triangles {
-		colors[t.V1.Position] = V(rand.Float64(), rand.Float64(), rand.Float64())
-		colors[t.V2.Position] = V(rand.Float64(), rand.Float64(), rand.Float64())
-		colors[t.V3.Position] = V(rand.Float64(), rand.Float64(), rand.Float64())
+		for _, v := range []Vertex{t.V1, t.V2, t.V3} {
+			c := rand.Float64()
+			colors[v.Position] = V(0.275, 0.537, 0.4).MulScalar(1.8 * c)
+		}
 	}
 	for _, t := range mesh.Triangles {
 		t.V1.Color = colors[t.V1.Position]
