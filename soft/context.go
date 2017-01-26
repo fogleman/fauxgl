@@ -46,23 +46,32 @@ func (dc *Context) ClearDepthBuffer() {
 }
 
 func (dc *Context) DrawTriangle(t *Triangle, shader Shader) {
+	outside := 0
 	w1 := shader.Vertex(t.V1)
 	if !clipBox.Contains(w1.Position) {
-		return
+		outside++
 	}
 	w2 := shader.Vertex(t.V2)
 	if !clipBox.Contains(w2.Position) {
-		return
+		outside++
 	}
 	w3 := shader.Vertex(t.V3)
 	if !clipBox.Contains(w3.Position) {
+		outside++
+	}
+	if outside == 3 {
 		return
 	}
 	s1 := dc.screenMatrix.MulPosition(w1.Position)
 	s2 := dc.screenMatrix.MulPosition(w2.Position)
 	s3 := dc.screenMatrix.MulPosition(w3.Position)
-	dc.fragmentBuffer = Rasterize(s1, s2, s3, dc.fragmentBuffer)
+	dc.fragmentBuffer = Rasterize(dc.Width, dc.Height, s1, s2, s3, dc.fragmentBuffer)
 	for _, f := range dc.fragmentBuffer {
+		if outside > 0 {
+			if f.X < 0 || f.X >= dc.Width || f.Y < 0 || f.Y >= dc.Height {
+				continue
+			}
+		}
 		i := f.Y*dc.Width + f.X
 		if f.Depth > dc.DepthBuffer[i] {
 			continue

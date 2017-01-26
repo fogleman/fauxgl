@@ -1,5 +1,7 @@
 package soft
 
+import "math"
+
 var Discard = Vector{-1, -1, -1}
 
 type Shader interface {
@@ -10,11 +12,12 @@ type Shader interface {
 type DefaultShader struct {
 	Matrix Matrix
 	Light  Vector
+	Camera Vector
 	Color  Vector
 }
 
-func NewDefaultShader(matrix Matrix, light, color Vector) Shader {
-	return &DefaultShader{matrix, light, color}
+func NewDefaultShader(matrix Matrix, light, camera, color Vector) Shader {
+	return &DefaultShader{matrix, light, camera, color}
 }
 
 func (shader *DefaultShader) Vertex(v Vertex) Vertex {
@@ -23,6 +26,13 @@ func (shader *DefaultShader) Vertex(v Vertex) Vertex {
 }
 
 func (shader *DefaultShader) Fragment(v Vertex) Vector {
-	light := Clamp(v.Normal.Dot(shader.Light), 0, 1)
+	diffuse := math.Max(v.Normal.Dot(shader.Light), 0)
+	specular := 0.0
+	if diffuse > 0 {
+		camera := shader.Camera.Sub(v.Position).Normalize()
+		specular = math.Max(camera.Dot(shader.Light.Negate().Reflect(v.Normal)), 0)
+		specular = math.Pow(specular, 50)
+	}
+	light := Clamp(diffuse+specular, 0, 1)
 	return shader.Color.MulScalar(light)
 }

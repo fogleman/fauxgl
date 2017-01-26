@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	width  = 1024 * 1
-	height = 1024 * 1
+	width  = 1920 * 1
+	height = 1080 * 1
 	fovy   = 50
 	near   = 1
-	far    = 10
+	far    = 50
 )
 
 var (
-	eye    = V(-1, -3, 1)
-	center = V(0, 0, -0.25)
+	eye    = V(0, -7, 2)
+	center = V(0, 0, -2)
 	up     = V(0, 0, 1)
 )
 
@@ -47,14 +47,19 @@ func main() {
 		angle := Radians(float64(frame * 5))
 		aspect := float64(width) / float64(height)
 
-		// create transformation matrix and light direction
-		matrix := Rotate(up, angle).LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
-		light := Rotate(up, -angle).MulDirection(V(1, -1, 0.5).Normalize())
-		color := V(0.275, 0.537, 0.4)
+		for x := -2; x <= 2; x++ {
+			for y := -2; y <= 2; y++ {
+				// create transformation matrix and light direction
+				t := V(float64(x)*2, float64(y)*2, 0)
+				matrix := Rotate(up, angle).Translate(t).LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+				light := Rotate(up, -angle).MulDirection(V(-0.25, -0.25, 1).Normalize())
+				color := V(0.275, 0.537, 0.4)
 
-		// render
-		shader := NewDefaultShader(matrix, light, color)
-		context.DrawMesh(mesh, shader)
+				// render
+				shader := NewDefaultShader(matrix, light, eye, color)
+				context.DrawMesh(mesh, shader)
+			}
+		}
 
 		elapsed := time.Since(start)
 		fmt.Println(frame, elapsed)
