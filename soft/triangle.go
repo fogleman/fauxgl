@@ -10,12 +10,6 @@ func NewTriangle(v1, v2, v3 Vertex) *Triangle {
 	return &t
 }
 
-func (t *Triangle) BoundingBox() Box {
-	min := t.V1.Position.Min(t.V2.Position).Min(t.V3.Position)
-	max := t.V1.Position.Max(t.V2.Position).Max(t.V3.Position)
-	return Box{min, max}
-}
-
 func (t *Triangle) Normal() Vector {
 	e1 := t.V2.Position.Sub(t.V1.Position)
 	e2 := t.V3.Position.Sub(t.V1.Position)

@@ -67,6 +67,9 @@ func LoadOBJ(path string) (*Mesh, error) {
 				t.V1.Normal = vns[fvns[i1]]
 				t.V2.Normal = vns[fvns[i2]]
 				t.V3.Normal = vns[fvns[i3]]
+				t.V1.Texture = vts[fvts[i1]]
+				t.V2.Texture = vts[fvts[i2]]
+				t.V3.Texture = vts[fvts[i3]]
 				t.FixNormals()
 				triangles = append(triangles, &t)
 			}

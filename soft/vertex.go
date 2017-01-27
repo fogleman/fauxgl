@@ -12,9 +12,6 @@ func (a Vertex) Outside() bool {
 	return a.Output.Outside()
 }
 
-var zeroVector = Vector{}
-var zeroVectorW = VectorW{}
-
 func InterpolateVertexes(v1, v2, v3 Vertex, b Vector) Vertex {
 	v := Vertex{}
 	v.Position = InterpolateVectors(v1.Position, v2.Position, v3.Position, b)
@@ -26,9 +23,6 @@ func InterpolateVertexes(v1, v2, v3 Vertex, b Vector) Vertex {
 }
 
 func InterpolateVectors(v1, v2, v3, b Vector) Vector {
-	if v1 == zeroVector && v2 == zeroVector && v3 == zeroVector {
-		return zeroVector
-	}
 	n := Vector{}
 	n = n.Add(v1.MulScalar(b.X))
 	n = n.Add(v2.MulScalar(b.Y))
@@ -37,9 +31,6 @@ func InterpolateVectors(v1, v2, v3, b Vector) Vector {
 }
 
 func InterpolateVectorWs(v1, v2, v3 VectorW, b Vector) VectorW {
-	if v1 == zeroVectorW && v2 == zeroVectorW && v3 == zeroVectorW {
-		return zeroVectorW
-	}
 	n := VectorW{}
 	n = n.Add(v1.MulScalar(b.X))
 	n = n.Add(v2.MulScalar(b.Y))

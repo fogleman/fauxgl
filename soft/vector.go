@@ -13,10 +13,6 @@ func V(x, y, z float64) Vector {
 	return Vector{x, y, z}
 }
 
-func (a Vector) VectorW() VectorW {
-	return VectorW{a.X, a.Y, a.Z, 1}
-}
-
 func HexColor(x int) Vector {
 	r := float64((x>>16)&0xff) / 255
 	g := float64((x>>8)&0xff) / 255
@@ -29,6 +25,10 @@ func (a Vector) NRGBA() color.NRGBA {
 	g := uint8(255 * a.Y)
 	b := uint8(255 * a.Z)
 	return color.NRGBA{r, g, b, 255}
+}
+
+func (a Vector) VectorW() VectorW {
+	return VectorW{a.X, a.Y, a.Z, 1}
 }
 
 func (a Vector) Length() float64 {
