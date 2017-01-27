@@ -1,8 +1,8 @@
 package soft
 
-func Rasterize(width, height int, p1, p2, p3 Vector, buffer []Fragment) []Fragment {
-	min := p1.Min(p2.Min(p3)).Floor().Max(Vector{})
-	max := p1.Max(p2.Max(p3)).Ceil().Min(Vector{float64(width), float64(height), 0})
+func Rasterize(p1, p2, p3 Vector, buffer []Fragment) []Fragment {
+	min := p1.Min(p2.Min(p3)).Floor()
+	max := p1.Max(p2.Max(p3)).Ceil()
 	x1 := int(min.X)
 	x2 := int(max.X)
 	y1 := int(min.Y)
@@ -20,7 +20,7 @@ func Rasterize(width, height int, p1, p2, p3 Vector, buffer []Fragment) []Fragme
 			d20 := v2.X*v0.X + v2.Y*v0.Y
 			d21 := v2.X*v1.X + v2.Y*v1.Y
 			d := d00*d11 - d01*d01
-			if d == 0 {
+			if d > -0.001 && d < 0.001 {
 				continue
 			}
 			v := (d11*d20 - d01*d21) / d

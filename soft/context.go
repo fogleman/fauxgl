@@ -48,7 +48,7 @@ func (dc *Context) drawClipped(v1, v2, v3 Vertex, shader Shader, buf []Fragment)
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 	s2 := dc.screenMatrix.MulPosition(ndc2)
 	s3 := dc.screenMatrix.MulPosition(ndc3)
-	buf = Rasterize(dc.Width, dc.Height, s1, s2, s3, buf)
+	buf = Rasterize(s1, s2, s3, buf)
 	for _, f := range buf {
 		i := f.Y*dc.Width + f.X
 		if f.Depth > dc.DepthBuffer[i] {

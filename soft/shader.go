@@ -31,8 +31,8 @@ func (shader *DefaultShader) Fragment(v Vertex) Vector {
 	if diffuse > 0 {
 		camera := shader.Camera.Sub(v.Position).Normalize()
 		specular = math.Max(camera.Dot(shader.Light.Negate().Reflect(v.Normal)), 0)
-		specular = math.Pow(specular, 50)
+		specular = math.Pow(specular, 20)
 	}
-	light := Clamp(diffuse+specular, 0, 1)
+	light := Clamp(diffuse+specular, 0.1, 1)
 	return shader.Color.MulScalar(light)
 }

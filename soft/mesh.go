@@ -87,7 +87,7 @@ func (m *Mesh) UnitCube() {
 }
 
 func (m *Mesh) BiUnitCube() {
-	m.FitInside(Box{Vector{-1, -1, -1}, Vector{1, 1, 1}}, Vector{})
+	m.FitInside(Box{Vector{-1, -1, -1}, Vector{1, 1, 1}}, Vector{0.5, 0.5, 0.5})
 }
 
 func (m *Mesh) MoveTo(position, anchor Vector) {
