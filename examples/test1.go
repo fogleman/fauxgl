@@ -17,7 +17,7 @@ const (
 
 var (
 	eye    = V(0, -7, 2)
-	center = V(0, 0, -2)
+	center = V(0, 0, -1.8)
 	up     = V(0, 0, 1)
 )
 
@@ -53,10 +53,11 @@ func main() {
 				t := V(float64(x)*2, float64(y)*2, 0)
 				matrix := Rotate(up, angle).Translate(t).LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 				light := Rotate(up, -angle).MulDirection(V(-0.25, -0.25, 1).Normalize())
-				color := V(0.275, 0.537, 0.4)
+				color := HexColor(0xFFFAD5)
+				camera := Translate(t.Negate()).MulPosition(eye)
 
 				// render
-				shader := NewDefaultShader(matrix, light, eye, color)
+				shader := NewDefaultShader(matrix, light, camera, color)
 				context.DrawMesh(mesh, shader)
 			}
 		}

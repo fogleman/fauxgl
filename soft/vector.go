@@ -17,6 +17,13 @@ func (a Vector) VectorW() VectorW {
 	return VectorW{a.X, a.Y, a.Z, 1}
 }
 
+func HexColor(x int) Vector {
+	r := float64((x>>16)&0xff) / 255
+	g := float64((x>>8)&0xff) / 255
+	b := float64((x>>0)&0xff) / 255
+	return Vector{r, g, b}
+}
+
 func (a Vector) NRGBA() color.NRGBA {
 	r := uint8(255 * a.X)
 	g := uint8(255 * a.Y)
