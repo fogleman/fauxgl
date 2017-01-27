@@ -3,39 +3,18 @@ package soft
 import (
 	"image/color"
 	"math"
-	"math/rand"
 )
 
 type Vector struct {
 	X, Y, Z float64
 }
 
-type VectorW struct {
-	Vector
-	W float64
-}
-
 func V(x, y, z float64) Vector {
 	return Vector{x, y, z}
 }
 
-func RandomUnitVector(rnd *rand.Rand) Vector {
-	for {
-		var x, y, z float64
-		if rnd == nil {
-			x = rand.Float64()*2 - 1
-			y = rand.Float64()*2 - 1
-			z = rand.Float64()*2 - 1
-		} else {
-			x = rnd.Float64()*2 - 1
-			y = rnd.Float64()*2 - 1
-			z = rnd.Float64()*2 - 1
-		}
-		if x*x+y*y+z*z > 1 {
-			continue
-		}
-		return Vector{x, y, z}.Normalize()
-	}
+func (a Vector) VectorW() VectorW {
+	return VectorW{a.X, a.Y, a.Z, 1}
 }
 
 func (a Vector) NRGBA() color.NRGBA {
@@ -53,14 +32,6 @@ func (a Vector) Distance(b Vector) float64 {
 	return a.Sub(b).Length()
 }
 
-func (a Vector) LengthSquared() float64 {
-	return a.X*a.X + a.Y*a.Y + a.Z*a.Z
-}
-
-func (a Vector) DistanceSquared(b Vector) float64 {
-	return a.Sub(b).LengthSquared()
-}
-
 func (a Vector) Dot(b Vector) float64 {
 	return a.X*b.X + a.Y*b.Y + a.Z*b.Z
 }
@@ -70,10 +41,6 @@ func (a Vector) Cross(b Vector) Vector {
 	y := a.Z*b.X - a.X*b.Z
 	z := a.X*b.Y - a.Y*b.X
 	return Vector{x, y, z}
-}
-
-func (a Vector) Cross2D(b Vector) float64 {
-	return a.X*b.Y - a.Y*b.X
 }
 
 func (a Vector) Normalize() Vector {
@@ -155,4 +122,37 @@ func (a Vector) MaxComponent() float64 {
 
 func (i Vector) Reflect(n Vector) Vector {
 	return i.Sub(n.MulScalar(2 * n.Dot(i)))
+}
+
+type VectorW struct {
+	X, Y, Z, W float64
+}
+
+func (a VectorW) Vector() Vector {
+	return Vector{a.X, a.Y, a.Z}
+}
+
+func (a VectorW) Outside() bool {
+	x, y, z, w := a.X, a.Y, a.Z, a.W
+	return x < -w || x > w || y < -w || y > w || z < -w || z > w
+}
+
+func (a VectorW) Dot(b VectorW) float64 {
+	return a.X*b.X + a.Y*b.Y + a.Z*b.Z + a.W*b.W
+}
+
+func (a VectorW) Add(b VectorW) VectorW {
+	return VectorW{a.X + b.X, a.Y + b.Y, a.Z + b.Z, a.W + b.W}
+}
+
+func (a VectorW) Sub(b VectorW) VectorW {
+	return VectorW{a.X - b.X, a.Y - b.Y, a.Z - b.Z, a.W - b.W}
+}
+
+func (a VectorW) MulScalar(b float64) VectorW {
+	return VectorW{a.X * b, a.Y * b, a.Z * b, a.W * b}
+}
+
+func (a VectorW) DivScalar(b float64) VectorW {
+	return VectorW{a.X / b, a.Y / b, a.Z / b, a.W / b}
 }

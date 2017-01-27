@@ -1,14 +1,23 @@
 package soft
 
-type clipPlane struct {
-	P, N Vector
+var clipPlanes = []clipPlane{
+	{VectorW{1, 0, 0, 1}, VectorW{-1, 0, 0, 1}},
+	{VectorW{-1, 0, 0, 1}, VectorW{1, 0, 0, 1}},
+	{VectorW{0, 1, 0, 1}, VectorW{0, -1, 0, 1}},
+	{VectorW{0, -1, 0, 1}, VectorW{0, 1, 0, 1}},
+	{VectorW{0, 0, 1, 1}, VectorW{0, 0, -1, 1}},
+	{VectorW{0, 0, -1, 1}, VectorW{0, 0, 1, 1}},
 }
 
-func (p clipPlane) pointInFront(v Vector) bool {
+type clipPlane struct {
+	P, N VectorW
+}
+
+func (p clipPlane) pointInFront(v VectorW) bool {
 	return v.Sub(p.P).Dot(p.N) > 0
 }
 
-func (p clipPlane) intersectSegment(v0, v1 Vector) Vector {
+func (p clipPlane) intersectSegment(v0, v1 VectorW) VectorW {
 	u := v1.Sub(v0)
 	w := v0.Sub(p.P)
 	d := p.N.Dot(u)
@@ -16,7 +25,7 @@ func (p clipPlane) intersectSegment(v0, v1 Vector) Vector {
 	return v0.Add(u.MulScalar(n / d))
 }
 
-func sutherlandHodgman(points []Vector, planes []clipPlane) []Vector {
+func sutherlandHodgman(points []VectorW, planes []clipPlane) []VectorW {
 	output := points
 	for _, plane := range planes {
 		input := output
@@ -43,5 +52,23 @@ func sutherlandHodgman(points []Vector, planes []clipPlane) []Vector {
 }
 
 func ClipTriangle(t *Triangle) []*Triangle {
-	return nil
+	w1 := t.V1.Output
+	w2 := t.V2.Output
+	w3 := t.V3.Output
+	p1 := w1.Vector()
+	p2 := w2.Vector()
+	p3 := w3.Vector()
+	points := []VectorW{w1, w2, w3}
+	newPoints := sutherlandHodgman(points, clipPlanes)
+	var result []*Triangle
+	for i := 2; i < len(newPoints); i++ {
+		b1 := Barycentric(p1, p2, p3, newPoints[0].Vector())
+		b2 := Barycentric(p1, p2, p3, newPoints[i-1].Vector())
+		b3 := Barycentric(p1, p2, p3, newPoints[i].Vector())
+		v1 := InterpolateVertexes(t.V1, t.V2, t.V3, b1)
+		v2 := InterpolateVertexes(t.V1, t.V2, t.V3, b2)
+		v3 := InterpolateVertexes(t.V1, t.V2, t.V3, b3)
+		result = append(result, NewTriangle(v1, v2, v3))
+	}
+	return result
 }

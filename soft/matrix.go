@@ -144,7 +144,7 @@ func (a Matrix) MulPositionW(b Vector) VectorW {
 	y := a.x10*b.X + a.x11*b.Y + a.x12*b.Z + a.x13
 	z := a.x20*b.X + a.x21*b.Y + a.x22*b.Z + a.x23
 	w := a.x30*b.X + a.x31*b.Y + a.x32*b.Z + a.x33
-	return VectorW{Vector{x, y, z}, w}
+	return VectorW{x, y, z, w}
 }
 
 func (a Matrix) MulDirection(b Vector) Vector {

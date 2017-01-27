@@ -6,8 +6,6 @@ import (
 	"math"
 )
 
-var clipBox = Box{V(-1, -1, -1), V(1, 1, 1)}
-
 type Context struct {
 	Width        int
 	Height       int
@@ -43,47 +41,41 @@ func (dc *Context) ClearDepthBuffer() {
 	}
 }
 
-func (dc *Context) drawTriangle(t *Triangle, shader Shader, buf []Fragment) []Fragment {
-	outside := 0
-	w1 := shader.Vertex(t.V1)
-	ndc1 := w1.Output.DivScalar(w1.Output.W)
-	if !clipBox.Contains(ndc1) {
-		outside++
-	}
-	w2 := shader.Vertex(t.V2)
-	ndc2 := w2.Output.DivScalar(w2.Output.W)
-	if !clipBox.Contains(ndc2) {
-		outside++
-	}
-	w3 := shader.Vertex(t.V3)
-	ndc3 := w3.Output.DivScalar(w3.Output.W)
-	if !clipBox.Contains(ndc3) {
-		outside++
-	}
-	if outside == 3 {
-		return buf
-	}
+func (dc *Context) drawClipped(v1, v2, v3 Vertex, shader Shader, buf []Fragment) []Fragment {
+	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
+	ndc2 := v2.Output.DivScalar(v2.Output.W).Vector()
+	ndc3 := v3.Output.DivScalar(v3.Output.W).Vector()
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 	s2 := dc.screenMatrix.MulPosition(ndc2)
 	s3 := dc.screenMatrix.MulPosition(ndc3)
 	buf = Rasterize(dc.Width, dc.Height, s1, s2, s3, buf)
 	for _, f := range buf {
-		if outside > 0 {
-			if f.X < 0 || f.X >= dc.Width || f.Y < 0 || f.Y >= dc.Height {
-				continue
-			}
-		}
 		i := f.Y*dc.Width + f.X
 		if f.Depth > dc.DepthBuffer[i] {
 			continue
 		}
-		v := InterpolateVertexes(t.V1, t.V2, t.V3, f.Barycentric)
+		v := InterpolateVertexes(v1, v2, v3, f.Barycentric)
 		color := shader.Fragment(v)
 		if color == Discard {
 			continue
 		}
 		dc.DepthBuffer[i] = f.Depth
 		dc.ColorBuffer.SetNRGBA(f.X, f.Y, color.NRGBA())
+	}
+	return buf
+}
+
+func (dc *Context) drawTriangle(t *Triangle, shader Shader, buf []Fragment) []Fragment {
+	v1 := shader.Vertex(t.V1)
+	v2 := shader.Vertex(t.V2)
+	v3 := shader.Vertex(t.V3)
+	if v1.Outside() || v2.Outside() || v3.Outside() {
+		triangles := ClipTriangle(NewTriangle(v1, v2, v3))
+		for _, t := range triangles {
+			buf = dc.drawClipped(t.V1, t.V2, t.V3, shader, buf)
+		}
+	} else {
+		buf = dc.drawClipped(v1, v2, v3, shader, buf)
 	}
 	return buf
 }
