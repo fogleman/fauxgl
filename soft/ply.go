@@ -2,6 +2,7 @@ package soft
 
 import (
 	"bufio"
+	"encoding/binary"
 	"os"
 	"strconv"
 	"strings"
@@ -75,15 +76,18 @@ func LoadPLY(path string) (*Mesh, error) {
 	}
 	defer file.Close()
 
-	// read lines
-	scanner := bufio.NewScanner(file)
+	// read header
+	reader := bufio.NewReader(file)
 	var element plyElement
 	var elements []plyElement
 	format := plyAscii
 	bytes := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		bytes += len(line) + 1
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		bytes += len(line)
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
@@ -122,21 +126,19 @@ func LoadPLY(path string) (*Mesh, error) {
 		}
 	}
 
-	// check for errors
-	if err = scanner.Err(); err != nil {
-		return nil, err
-	}
-
 	file.Seek(int64(bytes), 0)
 
-	if format != plyAscii {
-		panic("only ascii ply files are supported")
+	switch format {
+	case plyBinaryBigEndian:
+		return loadPlyBinary(file, elements, binary.BigEndian)
+	case plyBinaryLittleEndian:
+		return loadPlyBinary(file, elements, binary.LittleEndian)
+	default:
+		return loadPlyAscii(file, elements)
 	}
-
-	return readFormatAscii(file, elements)
 }
 
-func readFormatAscii(file *os.File, elements []plyElement) (*Mesh, error) {
+func loadPlyAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 	scanner := bufio.NewScanner(file)
 	var vertexes []Vector
 	var triangles []*Triangle
@@ -165,6 +167,7 @@ func readFormatAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 					t.V1.Position = vertexes[i1]
 					t.V2.Position = vertexes[i2]
 					t.V3.Position = vertexes[i3]
+					t.FixNormals()
 					triangles = append(triangles, &t)
 					fi += 3
 				}
@@ -176,4 +179,102 @@ func readFormatAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 		}
 	}
 	return NewMesh(triangles), nil
+}
+
+func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder) (*Mesh, error) {
+	var vertexes []Vector
+	var triangles []*Triangle
+	for _, element := range elements {
+		for i := 0; i < element.count; i++ {
+			var vertex Vector
+			var points []Vector
+			for _, property := range element.properties {
+				if property.countType == plyNone {
+					value, err := readPlyFloat(file, order, property.dataType)
+					if err != nil {
+						return nil, err
+					}
+					if property.name == "x" {
+						vertex.X = value
+					}
+					if property.name == "y" {
+						vertex.Y = value
+					}
+					if property.name == "z" {
+						vertex.Z = value
+					}
+				} else {
+					count, err := readPlyInt(file, order, property.countType)
+					if err != nil {
+						return nil, err
+					}
+					for j := 0; j < count; j++ {
+						value, err := readPlyInt(file, order, property.dataType)
+						if err != nil {
+							return nil, err
+						}
+						if property.name == "vertex_indices" {
+							points = append(points, vertexes[value])
+						}
+					}
+				}
+			}
+			if element.name == "vertex" {
+				vertexes = append(vertexes, vertex)
+			}
+			if element.name == "face" {
+				t := Triangle{}
+				t.V1.Position = points[0]
+				t.V2.Position = points[1]
+				t.V3.Position = points[2]
+				t.FixNormals()
+				triangles = append(triangles, &t)
+			}
+		}
+	}
+	return NewMesh(triangles), nil
+}
+
+func readPlyInt(file *os.File, order binary.ByteOrder, dataType plyDataType) (int, error) {
+	value, err := readPlyFloat(file, order, dataType)
+	return int(value), err
+}
+
+func readPlyFloat(file *os.File, order binary.ByteOrder, dataType plyDataType) (float64, error) {
+	switch dataType {
+	case plyInt8:
+		var value int8
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyUint8:
+		var value uint8
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyInt16:
+		var value int16
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyUint16:
+		var value uint16
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyInt32:
+		var value int32
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyUint32:
+		var value uint32
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyFloat32:
+		var value float32
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	case plyFloat64:
+		var value float64
+		err := binary.Read(file, order, &value)
+		return float64(value), err
+	default:
+		return 0, nil
+	}
 }
