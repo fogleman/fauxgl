@@ -16,6 +16,7 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - Triangle rasterization
 - Vertex and fragment "shaders"
 - View volume clipping
+- Back-face culling
 - Anti-aliasing via supersampling
 
 ### Performance
