@@ -13,16 +13,16 @@ import (
 
 const (
 	scale  = 4    // optional supersampling
-	width  = 1920 // output width in pixels
-	height = 1080 // output height in pixels
+	width  = 2048 // output width in pixels
+	height = 2048 // output height in pixels
 	fovy   = 30   // vertical field of view in degrees
 	near   = 1    // near clipping plane
 	far    = 10   // far clipping plane
 )
 
 var (
-	eye    = V(-3, 1, -0.75)               // camera position
-	center = V(0, -0.07, 0)                // view center position
+	eye    = V(-3, 1.25, -2)               // camera position
+	center = V(0, -0.1, -0.1)              // view center position
 	up     = V(0, 1, 0)                    // up vector
 	light  = V(-0.75, 1, 0.25).Normalize() // light direction
 	color  = HexColor(0x468966)            // object color
