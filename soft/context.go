@@ -57,7 +57,6 @@ func (dc *Context) rasterize(v1, v2, v3 Vertex, s1, s2, s3 Vector, shader Shader
 	d00 := d0.X*d0.X + d0.Y*d0.Y
 	d01 := d0.X*d1.X + d0.Y*d1.Y
 	d11 := d1.X*d1.X + d1.Y*d1.Y
-	lock := &dc.locks[(x1+y1)%len(dc.locks)]
 	for y := y1; y <= y2; y++ {
 		for x := x1; x <= x2; x++ {
 			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
@@ -92,6 +91,7 @@ func (dc *Context) rasterize(v1, v2, v3 Vertex, s1, s2, s3 Vector, shader Shader
 				continue
 			}
 			c := color.NRGBA()
+			lock := &dc.locks[(x+y)%len(dc.locks)]
 			lock.Lock()
 			if z < dc.DepthBuffer[i] {
 				dc.DepthBuffer[i] = z
