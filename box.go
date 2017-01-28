@@ -1,4 +1,4 @@
-package soft
+package fauxgl
 
 type Box struct {
 	Min, Max Vector

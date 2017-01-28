@@ -1,4 +1,4 @@
-package soft
+package fauxgl
 
 import (
 	"bufio"

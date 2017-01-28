@@ -1,4 +1,4 @@
-package soft
+package fauxgl
 
 type Triangle struct {
 	V1, V2, V3 Vertex

@@ -1,4 +1,4 @@
-package soft
+package fauxgl
 
 var clipPlanes = []clipPlane{
 	{VectorW{1, 0, 0, 1}, VectorW{-1, 0, 0, 1}},
