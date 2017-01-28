@@ -1,4 +1,4 @@
-# soft
+# FauxGL
 
 3D software rendering in pure Go. No OpenGL, no C extensions, no nothin'.
 
