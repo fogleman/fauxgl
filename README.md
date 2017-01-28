@@ -4,6 +4,12 @@
 
 ![Dragon](http://i.imgur.com/jRXlxLP.png)
 
+### About
+
+It's like OpenGL, but it's not. It's FauxGL.
+
+It doesn't use your graphics card, only your CPU. So it's slow and unsuitable for realtime rendering. But it's still pretty fast. It works the same way OpenGL works - rasterizing.
+
 ### Features
 
 - STL, OBJ, PLY file formats
