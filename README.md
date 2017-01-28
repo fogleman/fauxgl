@@ -13,11 +13,16 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 ### Features
 
 - STL, OBJ, PLY file formats
-- Triangle rasterization
-- Vertex and fragment "shaders"
-- View volume clipping
-- Back-face culling
-- Anti-aliasing via supersampling
+- triangle rasterization
+- vertex and fragment "shaders"
+- view volume clipping
+- back-face culling
+- anti-aliasing via supersampling
+
+### TODO
+
+- textures
+- more built-in, configurable shaders
 
 ### Performance
 
