@@ -12,13 +12,22 @@
 - View volume clipping
 - Anti-aliasing via supersampling
 
+### Go Get It
+
+    go get -u github.com/fogleman/fauxgl
+
+### Go Run It
+
+    cd go/src/github.com/fogleman/fauxgl
+    go run examples/bowser.go
+
 ### Complete Example
 
 ```go
 package main
 
 import (
-	. "github.com/fogleman/soft/soft"
+	. "github.com/fogleman/fauxgl"
 	"github.com/nfnt/resize"
 )
 
