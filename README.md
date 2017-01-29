@@ -18,10 +18,12 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - view volume clipping
 - back-face culling
 - anti-aliasing via supersampling
+- textures
 
 ### TODO
 
-- textures
+- lines and points
+- alpha blending
 - more built-in, configurable shaders
 
 ### Performance
