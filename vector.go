@@ -13,6 +13,12 @@ func V(x, y, z float64) Vector {
 	return Vector{x, y, z}
 }
 
+func Color(c color.Color) Vector {
+	r, g, b, _ := c.RGBA()
+	const d = 0xffff
+	return Vector{float64(r) / d, float64(g) / d, float64(b) / d}
+}
+
 func HexColor(x int) Vector {
 	r := float64((x>>16)&0xff) / 255
 	g := float64((x>>8)&0xff) / 255
