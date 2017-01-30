@@ -83,6 +83,17 @@ func LookAt(eye, center, up Vector) Matrix {
 	}
 }
 
+func Screen(w, h int) Matrix {
+	w2 := float64(w) / 2
+	h2 := float64(h) / 2
+	return Matrix{
+		w2, 0, 0, w2,
+		0, -h2, 0, h2,
+		0, 0, 0.5, 0.5,
+		0, 0, 0, 1,
+	}
+}
+
 func (m Matrix) Translate(v Vector) Matrix {
 	return Translate(v).Mul(m)
 }

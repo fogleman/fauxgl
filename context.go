@@ -23,7 +23,7 @@ func NewContext(width, height int) *Context {
 	dc.Height = height
 	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
 	dc.DepthBuffer = make([]float64, width*height)
-	dc.screenMatrix = Scale(V(1, -1, 1)).Translate(V(1, 1, 0)).Scale(V(float64(width)/2, float64(height)/2, 1))
+	dc.screenMatrix = Screen(width, height)
 	dc.locks = make([]sync.Mutex, 128)
 	dc.ClearDepthBuffer()
 	return dc
