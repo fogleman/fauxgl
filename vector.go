@@ -57,8 +57,8 @@ func (a Vector) Cross(b Vector) Vector {
 }
 
 func (a Vector) Normalize() Vector {
-	d := a.Length()
-	return Vector{a.X / d, a.Y / d, a.Z / d}
+	r := 1 / math.Sqrt(a.X*a.X+a.Y*a.Y+a.Z*a.Z)
+	return Vector{a.X * r, a.Y * r, a.Z * r}
 }
 
 func (a Vector) Negate() Vector {

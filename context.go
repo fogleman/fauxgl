@@ -24,7 +24,7 @@ func NewContext(width, height int) *Context {
 	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
 	dc.DepthBuffer = make([]float64, width*height)
 	dc.screenMatrix = Screen(width, height)
-	dc.locks = make([]sync.Mutex, 128)
+	dc.locks = make([]sync.Mutex, 256)
 	dc.ClearDepthBuffer()
 	return dc
 }
@@ -52,39 +52,34 @@ func (dc *Context) rasterize(v1, v2, v3 Vertex, s1, s2, s3 Vector, shader Shader
 	x2 := int(max.X)
 	y1 := int(min.Y)
 	y2 := int(max.Y)
-	d0 := s2.Sub(s1)
-	d1 := s3.Sub(s1)
-	d00 := d0.X*d0.X + d0.Y*d0.Y
-	d01 := d0.X*d1.X + d0.Y*d1.Y
-	d11 := d1.X*d1.X + d1.Y*d1.Y
+	ra := 1 / ((s3.X-s1.X)*(s2.Y-s1.Y) - (s3.Y-s1.Y)*(s2.X-s1.X))
+	r1 := 1 / v1.Output.W
+	r2 := 1 / v2.Output.W
+	r3 := 1 / v3.Output.W
 	for y := y1; y <= y2; y++ {
 		for x := x1; x <= x2; x++ {
 			p := Vector{float64(x) + 0.5, float64(y) + 0.5, 0}
-			d2 := p.Sub(s1)
-			d20 := d2.X*d0.X + d2.Y*d0.Y
-			d21 := d2.X*d1.X + d2.Y*d1.Y
-			d := d00*d11 - d01*d01
-			if d > -0.001 && d < 0.001 {
-				continue
-			}
-			by := (d11*d20 - d01*d21) / d
-			if by < 0 {
-				continue
-			}
-			bz := (d00*d21 - d01*d20) / d
-			if bz < 0 {
-				continue
-			}
-			bx := 1 - by - bz
+			bx := (p.X-s2.X)*(s3.Y-s2.Y) - (p.Y-s2.Y)*(s3.X-s2.X)
 			if bx < 0 {
 				continue
 			}
+			by := (p.X-s3.X)*(s1.Y-s3.Y) - (p.Y-s3.Y)*(s1.X-s3.X)
+			if by < 0 {
+				continue
+			}
+			bz := (p.X-s1.X)*(s2.Y-s1.Y) - (p.Y-s1.Y)*(s2.X-s1.X)
+			if bz < 0 {
+				continue
+			}
+			bx *= ra
+			by *= ra
+			bz *= ra
 			z := bx*s1.Z + by*s2.Z + bz*s3.Z
 			i := y*dc.Width + x
 			if z >= dc.DepthBuffer[i] { // completely safe?
 				continue
 			}
-			b := VectorW{bx / v1.Output.W, by / v2.Output.W, bz / v3.Output.W, 0}
+			b := VectorW{bx * r1, by * r2, bz * r3, 0}
 			b.W = 1 / (b.X + b.Y + b.Z)
 			v := InterpolateVertexes(v1, v2, v3, b)
 			color := shader.Fragment(v)
@@ -92,7 +87,7 @@ func (dc *Context) rasterize(v1, v2, v3 Vertex, s1, s2, s3 Vector, shader Shader
 				continue
 			}
 			c := color.NRGBA()
-			lock := &dc.locks[(x+y)%len(dc.locks)]
+			lock := &dc.locks[(x+y)&255]
 			lock.Lock()
 			if z < dc.DepthBuffer[i] {
 				dc.DepthBuffer[i] = z
