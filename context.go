@@ -84,7 +84,8 @@ func (dc *Context) rasterize(v1, v2, v3 Vertex, s1, s2, s3 Vector, shader Shader
 			if z >= dc.DepthBuffer[i] { // completely safe?
 				continue
 			}
-			b := Vector{bx, by, bz}
+			b := VectorW{bx / v1.Output.W, by / v2.Output.W, bz / v3.Output.W, 0}
+			b.W = 1 / (b.X + b.Y + b.Z)
 			v := InterpolateVertexes(v1, v2, v3, b)
 			color := shader.Fragment(v)
 			if color == Discard {

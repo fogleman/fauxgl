@@ -12,7 +12,7 @@ func (a Vertex) Outside() bool {
 	return a.Output.Outside()
 }
 
-func InterpolateVertexes(v1, v2, v3 Vertex, b Vector) Vertex {
+func InterpolateVertexes(v1, v2, v3 Vertex, b VectorW) Vertex {
 	v := Vertex{}
 	v.Position = InterpolateVectors(v1.Position, v2.Position, v3.Position, b)
 	v.Normal = InterpolateVectors(v1.Normal, v2.Normal, v3.Normal, b).Normalize()
@@ -22,23 +22,23 @@ func InterpolateVertexes(v1, v2, v3 Vertex, b Vector) Vertex {
 	return v
 }
 
-func InterpolateVectors(v1, v2, v3, b Vector) Vector {
+func InterpolateVectors(v1, v2, v3 Vector, b VectorW) Vector {
 	n := Vector{}
 	n = n.Add(v1.MulScalar(b.X))
 	n = n.Add(v2.MulScalar(b.Y))
 	n = n.Add(v3.MulScalar(b.Z))
-	return n
+	return n.MulScalar(b.W)
 }
 
-func InterpolateVectorWs(v1, v2, v3 VectorW, b Vector) VectorW {
+func InterpolateVectorWs(v1, v2, v3, b VectorW) VectorW {
 	n := VectorW{}
 	n = n.Add(v1.MulScalar(b.X))
 	n = n.Add(v2.MulScalar(b.Y))
 	n = n.Add(v3.MulScalar(b.Z))
-	return n
+	return n.MulScalar(b.W)
 }
 
-func Barycentric(p1, p2, p3, p Vector) Vector {
+func Barycentric(p1, p2, p3, p Vector) VectorW {
 	v0 := p2.Sub(p1)
 	v1 := p3.Sub(p1)
 	v2 := p.Sub(p1)
@@ -51,5 +51,5 @@ func Barycentric(p1, p2, p3, p Vector) Vector {
 	v := (d11*d20 - d01*d21) / d
 	w := (d00*d21 - d01*d20) / d
 	u := 1 - v - w
-	return Vector{u, v, w}
+	return VectorW{u, v, w, 1}
 }
