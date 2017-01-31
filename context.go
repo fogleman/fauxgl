@@ -46,7 +46,7 @@ func (dc *Context) ClearDepthBuffer() {
 }
 
 func edge(a, b, c Vector) float64 {
-	return (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
+	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
 func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector, shader Shader) {
@@ -60,12 +60,12 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector, shader Shader
 	w00 := edge(s1, s2, p)
 	w01 := edge(s2, s0, p)
 	w02 := edge(s0, s1, p)
-	a01 := s0.Y - s1.Y
-	b01 := s1.X - s0.X
-	a12 := s1.Y - s2.Y
-	b12 := s2.X - s1.X
-	a20 := s2.Y - s0.Y
-	b20 := s0.X - s2.X
+	a01 := s1.Y - s0.Y
+	b01 := s0.X - s1.X
+	a12 := s2.Y - s1.Y
+	b12 := s1.X - s2.X
+	a20 := s0.Y - s2.Y
+	b20 := s2.X - s0.X
 	ra := 1 / edge(s0, s1, s2)
 	r0 := 1 / v0.Output.W
 	r1 := 1 / v1.Output.W
