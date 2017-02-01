@@ -49,11 +49,11 @@ func main() {
 	color := HexColor("#B9121B")
 
 	// render
-	context.ClearColorBuffer(White)
-	context.ClearDepthBuffer()
-	shader := NewDefaultShader(matrix, light, eye, color)
+	context.ClearColor = White
+	context.ClearColorBuffer()
+	context.Shader = NewDefaultShader(matrix, light, eye, color)
 	start := time.Now()
-	context.DrawMesh(mesh, shader)
+	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 
 	// save image

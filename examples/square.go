@@ -43,7 +43,8 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColorBuffer(White)
+	context.ClearColor = White
+	context.ClearColorBuffer()
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
@@ -53,7 +54,8 @@ func main() {
 	shader := NewDefaultShader(matrix, light, eye, color)
 	shader.Texture = texture
 	start := time.Now()
-	context.DrawMesh(mesh, shader)
+	context.Shader = shader
+	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 
 	// downsample image for antialiasing

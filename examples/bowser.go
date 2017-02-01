@@ -46,11 +46,12 @@ func main() {
 	color := White
 
 	// render
-	context.ClearColorBuffer(Transparent)
+	context.ClearColor = Black
+	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	context.ClearColorBuffer()
 	context.ClearDepthBuffer()
-	shader := NewDefaultShader(matrix, light, eye, color)
 	start := time.Now()
-	context.DrawMesh(mesh, shader)
+	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 
 	// save image

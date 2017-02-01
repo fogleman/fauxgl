@@ -13,6 +13,11 @@ type Context struct {
 	Height       int
 	ColorBuffer  *image.NRGBA
 	DepthBuffer  []float64
+	ClearColor   Color
+	Shader       Shader
+	ReadDepth    bool
+	WriteDepth   bool
+	WriteColor   bool
 	Wireframe    bool
 	screenMatrix Matrix
 	locks        []sync.Mutex
@@ -24,6 +29,12 @@ func NewContext(width, height int) *Context {
 	dc.Height = height
 	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
 	dc.DepthBuffer = make([]float64, width*height)
+	dc.ClearColor = Transparent
+	dc.Shader = nil // TODO: default
+	dc.ReadDepth = true
+	dc.WriteDepth = true
+	dc.WriteColor = true
+	dc.Wireframe = false
 	dc.screenMatrix = Screen(width, height)
 	dc.locks = make([]sync.Mutex, 256)
 	dc.ClearDepthBuffer()
@@ -34,9 +45,9 @@ func (dc *Context) Image() image.Image {
 	return dc.ColorBuffer
 }
 
-func (dc *Context) ClearColorBuffer(color Color) {
+func (dc *Context) ClearColorBuffer() {
 	im := dc.ColorBuffer
-	src := image.NewUniform(color.NRGBA())
+	src := image.NewUniform(dc.ClearColor.NRGBA())
 	draw.Draw(im, im.Bounds(), src, image.ZP, draw.Src)
 }
 
@@ -89,7 +100,7 @@ func edge(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
-func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector, shader Shader) {
+func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	min := s0.Min(s1.Min(s2)).Floor()
 	max := s0.Max(s1.Max(s2)).Ceil()
 	x0 := int(min.X)
@@ -132,7 +143,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector, shader Shader
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
 			b.W = 1 / (b.X + b.Y + b.Z)
 			v := InterpolateVertexes(v0, v1, v2, b)
-			color := shader.Fragment(v)
+			color := dc.Shader.Fragment(v)
 			if color == Discard {
 				continue
 			}
@@ -151,7 +162,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector, shader Shader
 	}
 }
 
-func (dc *Context) drawClipped(v0, v1, v2 Vertex, shader Shader) {
+func (dc *Context) drawClipped(v0, v1, v2 Vertex) {
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
 	ndc2 := v2.Output.DivScalar(v2.Output.W).Vector()
@@ -172,32 +183,32 @@ func (dc *Context) drawClipped(v0, v1, v2 Vertex, shader Shader) {
 		dc.line(s1, s2, color)
 		dc.line(s2, s0, color)
 	} else {
-		dc.rasterize(v0, v1, v2, s0, s1, s2, shader)
+		dc.rasterize(v0, v1, v2, s0, s1, s2)
 	}
 }
 
-func (dc *Context) DrawTriangle(t *Triangle, shader Shader) {
-	v1 := shader.Vertex(t.V1)
-	v2 := shader.Vertex(t.V2)
-	v3 := shader.Vertex(t.V3)
+func (dc *Context) DrawTriangle(t *Triangle) {
+	v1 := dc.Shader.Vertex(t.V1)
+	v2 := dc.Shader.Vertex(t.V2)
+	v3 := dc.Shader.Vertex(t.V3)
 	if v1.Outside() || v2.Outside() || v3.Outside() {
 		triangles := ClipTriangle(NewTriangle(v1, v2, v3))
 		for _, t := range triangles {
-			dc.drawClipped(t.V1, t.V2, t.V3, shader)
+			dc.drawClipped(t.V1, t.V2, t.V3)
 		}
 	} else {
-		dc.drawClipped(v1, v2, v3, shader)
+		dc.drawClipped(v1, v2, v3)
 	}
 }
 
-func (dc *Context) DrawTriangles(triangles []*Triangle, shader Shader) {
+func (dc *Context) DrawTriangles(triangles []*Triangle) {
 	wn := runtime.NumCPU()
 	done := make(chan bool, wn)
 	for wi := 0; wi < wn; wi++ {
 		go func(wi int) {
 			for i, t := range triangles {
 				if i%wn == wi {
-					dc.DrawTriangle(t, shader)
+					dc.DrawTriangle(t)
 				}
 			}
 			done <- true
@@ -208,6 +219,6 @@ func (dc *Context) DrawTriangles(triangles []*Triangle, shader Shader) {
 	}
 }
 
-func (dc *Context) DrawMesh(mesh *Mesh, shader Shader) {
-	dc.DrawTriangles(mesh.Triangles, shader)
+func (dc *Context) DrawMesh(mesh *Mesh) {
+	dc.DrawTriangles(mesh.Triangles)
 }

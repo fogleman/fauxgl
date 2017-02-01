@@ -36,13 +36,14 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width, height)
+	context.ClearColor = Black
 
 	for frame := 0; frame < 72; frame++ {
 		start := time.Now()
 
 		// clear depth and color buffers (black)
 		context.ClearDepthBuffer()
-		context.ClearColorBuffer(Black)
+		context.ClearColorBuffer()
 
 		angle := Radians(float64(frame * 5))
 		aspect := float64(width) / float64(height)
@@ -57,8 +58,8 @@ func main() {
 				camera := Translate(t.Negate()).MulPosition(eye)
 
 				// render
-				shader := NewDefaultShader(matrix, light, camera, color)
-				context.DrawMesh(mesh, shader)
+				context.Shader = NewDefaultShader(matrix, light, camera, color)
+				context.DrawMesh(mesh)
 			}
 		}
 

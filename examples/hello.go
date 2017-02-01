@@ -25,15 +25,16 @@ func main() {
 	mesh.SmoothNormalsThreshold(Radians(30))
 
 	context := NewContext(width, height)
-	context.ClearColorBuffer(Black)
+	context.ClearColor = Black
+	context.ClearColorBuffer()
 
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 	light := V(-2, 0, 1).Normalize()
 	color := Color{0.5, 1, 0.65, 1}
 
-	shader := NewDefaultShader(matrix, light, eye, color)
-	context.DrawMesh(mesh, shader)
+	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	context.DrawMesh(mesh)
 
 	SavePNG("out.png", context.Image())
 }
