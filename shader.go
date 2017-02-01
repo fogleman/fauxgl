@@ -2,22 +2,20 @@ package fauxgl
 
 import "math"
 
-var Discard = Vector{-1, -1, -1}
-
 type Shader interface {
 	Vertex(Vertex) Vertex
-	Fragment(Vertex) Vector
+	Fragment(Vertex) Color
 }
 
 type DefaultShader struct {
 	Matrix  Matrix
 	Light   Vector
 	Camera  Vector
-	Color   Vector
+	Color   Color
 	Texture Texture
 }
 
-func NewDefaultShader(matrix Matrix, light, camera, color Vector) *DefaultShader {
+func NewDefaultShader(matrix Matrix, light, camera Vector, color Color) *DefaultShader {
 	return &DefaultShader{matrix, light, camera, color, nil}
 }
 
@@ -26,7 +24,7 @@ func (shader *DefaultShader) Vertex(v Vertex) Vertex {
 	return v
 }
 
-func (shader *DefaultShader) Fragment(v Vertex) Vector {
+func (shader *DefaultShader) Fragment(v Vertex) Color {
 	color := shader.Color
 	if shader.Texture != nil {
 		color = shader.Texture.BilinearSample(v.Texture.X, v.Texture.Y)
@@ -39,5 +37,5 @@ func (shader *DefaultShader) Fragment(v Vertex) Vector {
 		specular = math.Pow(specular, 50)
 	}
 	light := Clamp(diffuse+specular, 0.1, 1)
-	return color.MulScalar(light)
+	return color.MulScalar(light).Opaque()
 }

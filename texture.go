@@ -6,8 +6,8 @@ import (
 )
 
 type Texture interface {
-	Sample(u, v float64) Vector
-	BilinearSample(u, v float64) Vector
+	Sample(u, v float64) Color
+	BilinearSample(u, v float64) Color
 }
 
 func LoadTexture(path string) (Texture, error) {
@@ -29,16 +29,16 @@ func NewImageTexture(im image.Image) Texture {
 	return &ImageTexture{size.X, size.Y, im}
 }
 
-func (t *ImageTexture) Sample(u, v float64) Vector {
+func (t *ImageTexture) Sample(u, v float64) Color {
 	v = 1 - v
 	u -= math.Floor(u)
 	v -= math.Floor(v)
 	x := int(u * float64(t.Width))
 	y := int(v * float64(t.Height))
-	return Color(t.Image.At(x, y))
+	return MakeColor(t.Image.At(x, y))
 }
 
-func (t *ImageTexture) BilinearSample(u, v float64) Vector {
+func (t *ImageTexture) BilinearSample(u, v float64) Color {
 	v = 1 - v
 	u -= math.Floor(u)
 	v -= math.Floor(v)
@@ -50,11 +50,11 @@ func (t *ImageTexture) BilinearSample(u, v float64) Vector {
 	y1 := y0 + 1
 	x -= float64(x0)
 	y -= float64(y0)
-	c00 := Color(t.Image.At(x0, y0))
-	c01 := Color(t.Image.At(x0, y1))
-	c10 := Color(t.Image.At(x1, y0))
-	c11 := Color(t.Image.At(x1, y1))
-	c := Vector{}
+	c00 := MakeColor(t.Image.At(x0, y0))
+	c01 := MakeColor(t.Image.At(x0, y1))
+	c10 := MakeColor(t.Image.At(x1, y0))
+	c11 := MakeColor(t.Image.At(x1, y1))
+	c := Color{}
 	c = c.Add(c00.MulScalar((1 - x) * (1 - y)))
 	c = c.Add(c10.MulScalar(x * (1 - y)))
 	c = c.Add(c01.MulScalar((1 - x) * y))

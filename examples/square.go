@@ -22,7 +22,7 @@ var (
 	center = V(0, 0, -0.2)             // view center position
 	up     = V(0, 0, 1)                // up vector
 	light  = V(0, -0.5, 1).Normalize() // light direction
-	color  = HexColor(0x468966)        // object color
+	color  = HexColor("#468966")       // object color
 )
 
 func main() {
@@ -43,7 +43,7 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColorBuffer(V(1, 1, 1))
+	context.ClearColorBuffer(White)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)

@@ -43,10 +43,10 @@ func main() {
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 	light := V(0.75, 0.25, 1).Normalize()
-	color := V(1, 1, 1)
+	color := White
 
 	// render
-	context.ClearColorBuffer(V(0, 0, 0))
+	context.ClearColorBuffer(Transparent)
 	context.ClearDepthBuffer()
 	shader := NewDefaultShader(matrix, light, eye, color)
 	start := time.Now()

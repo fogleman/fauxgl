@@ -22,7 +22,6 @@ var (
 	center = V(0, 0, 0)                 // view center position
 	up     = V(0, 0, 1)                 // up vector
 	light  = V(-1, 1, 0.25).Normalize() // light direction
-	color  = HexColor(0x468966)         // object color
 )
 
 func main() {
@@ -43,14 +42,14 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColorBuffer(V(1, 1, 1))
+	context.ClearColorBuffer(White)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	shader := NewDefaultShader(matrix, light, eye, color)
+	shader := NewDefaultShader(matrix, light, eye, Black)
 	shader.Texture = texture
 	start := time.Now()
 	context.DrawMesh(mesh, shader)

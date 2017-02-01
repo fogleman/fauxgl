@@ -46,10 +46,10 @@ func main() {
 	// w := h * float64(width) / float64(height)
 	// matrix := LookAt(eye, center, up).Orthographic(-w, w, -h, h, -10, 10)
 	light := V(0, 1, 1).Normalize()
-	color := HexColor(0xB9121B)
+	color := HexColor("#B9121B")
 
 	// render
-	context.ClearColorBuffer(V(1, 1, 1))
+	context.ClearColorBuffer(White)
 	context.ClearDepthBuffer()
 	shader := NewDefaultShader(matrix, light, eye, color)
 	start := time.Now()

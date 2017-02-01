@@ -21,11 +21,12 @@ const (
 )
 
 var (
-	eye    = V(-3, 1.25, -2)               // camera position
-	center = V(0, -0.1, -0.1)              // view center position
-	up     = V(0, 1, 0)                    // up vector
-	light  = V(-0.75, 1, 0.25).Normalize() // light direction
-	color  = HexColor(0x468966)            // object color
+	eye        = V(-3, 1.25, -2)               // camera position
+	center     = V(0, -0.1, -0.1)              // view center position
+	up         = V(0, 1, 0)                    // up vector
+	light      = V(-0.75, 1, 0.25).Normalize() // light direction
+	color      = HexColor("#468966")           // object color
+	background = HexColor("#FFF8E3")           // background color
 )
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColorBuffer(HexColor(0xFFF8E3))
+	context.ClearColorBuffer(background)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)

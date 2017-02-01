@@ -34,7 +34,7 @@ func (dc *Context) Image() image.Image {
 	return dc.ColorBuffer
 }
 
-func (dc *Context) ClearColorBuffer(color Vector) {
+func (dc *Context) ClearColorBuffer(color Color) {
 	im := dc.ColorBuffer
 	src := image.NewUniform(color.NRGBA())
 	draw.Draw(im, im.Bounds(), src, image.ZP, draw.Src)
@@ -46,7 +46,7 @@ func (dc *Context) ClearDepthBuffer() {
 	}
 }
 
-func (dc *Context) line(s0, s1, color Vector) {
+func (dc *Context) line(s0, s1 Vector, color Color) {
 	c := color.NRGBA()
 	x0 := Round(s0.X)
 	y0 := Round(s0.Y)
@@ -167,7 +167,7 @@ func (dc *Context) drawClipped(v0, v1, v2 Vertex, shader Shader) {
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 	s2 := dc.screenMatrix.MulPosition(ndc2)
 	if dc.Wireframe {
-		color := Vector{}
+		color := Black
 		dc.line(s0, s1, color)
 		dc.line(s1, s2, color)
 		dc.line(s2, s0, color)
