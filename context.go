@@ -13,6 +13,7 @@ type Context struct {
 	Height       int
 	ColorBuffer  *image.NRGBA
 	DepthBuffer  []float64
+	Wireframe    bool
 	screenMatrix Matrix
 	locks        []sync.Mutex
 }
@@ -42,6 +43,45 @@ func (dc *Context) ClearColorBuffer(color Vector) {
 func (dc *Context) ClearDepthBuffer() {
 	for i := range dc.DepthBuffer {
 		dc.DepthBuffer[i] = math.MaxFloat64
+	}
+}
+
+func (dc *Context) line(s0, s1, color Vector) {
+	c := color.NRGBA()
+	x0 := Round(s0.X)
+	y0 := Round(s0.Y)
+	x1 := Round(s1.X)
+	y1 := Round(s1.Y)
+	steep := false
+	if AbsInt(x0-x1) < AbsInt(y0-y1) {
+		steep = true
+		x0, y0 = y0, x0
+		x1, y1 = y1, x1
+	}
+	if x0 > x1 {
+		x0, x1 = x1, x0
+		y0, y1 = y1, y0
+	}
+	dx := x1 - x0
+	dy := y1 - y0
+	de2 := AbsInt(dy) * 2
+	e2 := 0
+	y := y0
+	for x := x0; x <= x1; x++ {
+		if steep {
+			dc.ColorBuffer.SetNRGBA(y, x, c)
+		} else {
+			dc.ColorBuffer.SetNRGBA(x, y, c)
+		}
+		e2 += de2
+		if e2 > dx {
+			if y1 > y0 {
+				y++
+			} else {
+				y--
+			}
+			e2 -= dx * 2
+		}
 	}
 }
 
@@ -117,14 +157,23 @@ func (dc *Context) drawClipped(v0, v1, v2 Vertex, shader Shader) {
 	ndc2 := v2.Output.DivScalar(v2.Output.W).Vector()
 
 	// back face culling
-	if (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y)-(ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y) <= 0 {
-		return
+	if !dc.Wireframe {
+		if (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y)-(ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y) <= 0 {
+			return
+		}
 	}
 
 	s0 := dc.screenMatrix.MulPosition(ndc0)
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 	s2 := dc.screenMatrix.MulPosition(ndc2)
-	dc.rasterize(v0, v1, v2, s0, s1, s2, shader)
+	if dc.Wireframe {
+		color := Vector{}
+		dc.line(s0, s1, color)
+		dc.line(s1, s2, color)
+		dc.line(s2, s0, color)
+	} else {
+		dc.rasterize(v0, v1, v2, s0, s1, s2, shader)
+	}
 }
 
 func (dc *Context) DrawTriangle(t *Triangle, shader Shader) {

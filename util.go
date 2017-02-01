@@ -64,3 +64,18 @@ func ClampInt(x, lo, hi int) int {
 	}
 	return x
 }
+
+func AbsInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func Round(a float64) int {
+	if a < 0 {
+		return int(math.Ceil(a - 0.5))
+	} else {
+		return int(math.Floor(a + 0.5))
+	}
+}
