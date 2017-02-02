@@ -1,6 +1,9 @@
 package fauxgl
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 type Vector struct {
 	X, Y, Z float64
@@ -8,6 +11,18 @@ type Vector struct {
 
 func V(x, y, z float64) Vector {
 	return Vector{x, y, z}
+}
+
+func RandomUnitVector() Vector {
+	for {
+		x := rand.Float64()*2 - 1
+		y := rand.Float64()*2 - 1
+		z := rand.Float64()*2 - 1
+		if x*x+y*y+z*z > 1 {
+			continue
+		}
+		return Vector{x, y, z}.Normalize()
+	}
 }
 
 func (a Vector) VectorW() VectorW {
@@ -112,6 +127,16 @@ func (a Vector) MaxComponent() float64 {
 
 func (i Vector) Reflect(n Vector) Vector {
 	return i.Sub(n.MulScalar(2 * n.Dot(i)))
+}
+
+func (a Vector) Perpendicular() Vector {
+	if a.X == 0 && a.Y == 0 {
+		if a.Z == 0 {
+			return Vector{}
+		}
+		return Vector{0, 1, 0}
+	}
+	return Vector{-a.Y, a.X, 0}.Normalize()
 }
 
 type VectorW struct {

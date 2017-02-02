@@ -1,7 +1,5 @@
 package fauxgl
 
-import "math"
-
 type Shape interface {
 	Mesh() *Mesh
 }
@@ -25,18 +23,42 @@ func (p *Plane) Mesh() *Mesh {
 		NewTriangleForPoints(v1, v2, v3),
 		NewTriangleForPoints(v1, v3, v4),
 	})
-	up := Vector{0, 0, 1}
-	dot := p.N.Dot(up)
-	if dot == 1 {
-		// no rotation needed
-	} else if dot == -1 {
-		// rotate 180
-		mesh.Transform(Rotate(Vector{1, 0, 0}, math.Pi))
-	} else {
-		a := math.Acos(dot)
-		v := p.N.Cross(up).Normalize()
-		mesh.Transform(Rotate(v, a))
+	mesh.Transform(RotateTo(Vector{0, 0, 1}, p.N).Translate(p.P))
+	return mesh
+}
+
+type Cube struct {
+	W, H, D float64
+	Angle   float64
+	Up      Vector
+}
+
+func NewCube(w, h, d, a float64, up Vector) *Cube {
+	return &Cube{w, h, d, a, up}
+}
+
+func (c *Cube) Mesh() *Mesh {
+	v := []Vector{
+		{-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1},
+		{1, -1, -1}, {1, -1, 1}, {1, 1, -1}, {1, 1, 1},
 	}
-	mesh.Transform(Translate(p.P))
+	mesh := NewMesh([]*Triangle{
+		NewTriangleForPoints(v[3], v[5], v[7]),
+		NewTriangleForPoints(v[5], v[3], v[1]),
+		NewTriangleForPoints(v[0], v[6], v[4]),
+		NewTriangleForPoints(v[6], v[0], v[2]),
+		NewTriangleForPoints(v[0], v[5], v[1]),
+		NewTriangleForPoints(v[5], v[0], v[4]),
+		NewTriangleForPoints(v[5], v[6], v[7]),
+		NewTriangleForPoints(v[6], v[5], v[4]),
+		NewTriangleForPoints(v[6], v[3], v[7]),
+		NewTriangleForPoints(v[3], v[6], v[2]),
+		NewTriangleForPoints(v[0], v[3], v[2]),
+		NewTriangleForPoints(v[3], v[0], v[1]),
+	})
+	m := Rotate(Vector{0, 0, 1}, c.Angle)
+	m = m.Scale(Vector{c.W / 2, c.H / 2, c.D / 2})
+	m = m.RotateTo(Vector{0, 0, 1}, c.Up)
+	mesh.Transform(m)
 	return mesh
 }

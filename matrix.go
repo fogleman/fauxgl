@@ -45,6 +45,19 @@ func Rotate(v Vector, a float64) Matrix {
 		0, 0, 0, 1}
 }
 
+func RotateTo(a, b Vector) Matrix {
+	dot := b.Dot(a)
+	if dot == 1 {
+		return Identity()
+	} else if dot == -1 {
+		return Rotate(a.Perpendicular(), math.Pi)
+	} else {
+		angle := math.Acos(dot)
+		v := b.Cross(a).Normalize()
+		return Rotate(v, angle)
+	}
+}
+
 func Frustum(l, r, b, t, n, f float64) Matrix {
 	t1 := 2 * n
 	t2 := r - l
@@ -104,6 +117,10 @@ func (m Matrix) Scale(v Vector) Matrix {
 
 func (m Matrix) Rotate(v Vector, a float64) Matrix {
 	return Rotate(v, a).Mul(m)
+}
+
+func (m Matrix) RotateTo(a, b Vector) Matrix {
+	return RotateTo(a, b).Mul(m)
 }
 
 func (m Matrix) Frustum(l, r, b, t, n, f float64) Matrix {
