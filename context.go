@@ -2,7 +2,6 @@ package fauxgl
 
 import (
 	"image"
-	"image/draw"
 	"math"
 	"runtime"
 	"sync"
@@ -46,9 +45,17 @@ func (dc *Context) Image() image.Image {
 }
 
 func (dc *Context) ClearColorBufferWith(color Color) {
-	im := dc.ColorBuffer
-	src := image.NewUniform(color.NRGBA())
-	draw.Draw(im, im.Bounds(), src, image.ZP, draw.Src)
+	c := color.NRGBA()
+	for y := 0; y < dc.Height; y++ {
+		i := dc.ColorBuffer.PixOffset(0, y)
+		for x := 0; x < dc.Width; x++ {
+			dc.ColorBuffer.Pix[i+0] = c.R
+			dc.ColorBuffer.Pix[i+1] = c.G
+			dc.ColorBuffer.Pix[i+2] = c.B
+			dc.ColorBuffer.Pix[i+3] = c.A
+			i += 4
+		}
+	}
 }
 
 func (dc *Context) ClearColorBuffer() {
