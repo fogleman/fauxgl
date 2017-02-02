@@ -28,13 +28,14 @@ func (p *Plane) Mesh() *Mesh {
 }
 
 type Cube struct {
-	W, H, D float64
-	Angle   float64
-	Up      Vector
+	Position Vector
+	Size     Vector
+	Up       Vector
+	Rotation float64
 }
 
-func NewCube(w, h, d, a float64, up Vector) *Cube {
-	return &Cube{w, h, d, a, up}
+func NewCube(position, size, up Vector, rotation float64) *Cube {
+	return &Cube{position, size, up, rotation}
 }
 
 func (c *Cube) Mesh() *Mesh {
@@ -56,9 +57,10 @@ func (c *Cube) Mesh() *Mesh {
 		NewTriangleForPoints(v[0], v[3], v[2]),
 		NewTriangleForPoints(v[3], v[0], v[1]),
 	})
-	m := Rotate(Vector{0, 0, 1}, c.Angle)
-	m = m.Scale(Vector{c.W / 2, c.H / 2, c.D / 2})
+	m := Rotate(Vector{0, 0, 1}, c.Rotation)
+	m = m.Scale(c.Size.MulScalar(0.5))
 	m = m.RotateTo(Vector{0, 0, 1}, c.Up)
+	m = m.Translate(c.Position)
 	mesh.Transform(m)
 	return mesh
 }
