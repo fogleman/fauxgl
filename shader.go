@@ -37,5 +37,5 @@ func (shader *DefaultShader) Fragment(v Vertex) Color {
 		specular = math.Pow(specular, 50)
 	}
 	light := Clamp(diffuse+specular, 0.1, 1)
-	return color.MulScalar(light).Opaque()
+	return color.MulScalar(light).Alpha(color.A)
 }

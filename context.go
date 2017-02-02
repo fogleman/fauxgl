@@ -17,6 +17,7 @@ type Context struct {
 	ReadDepth    bool
 	WriteDepth   bool
 	WriteColor   bool
+	AlphaBlend   bool
 	Wireframe    bool
 	screenMatrix Matrix
 	locks        []sync.Mutex
@@ -33,6 +34,7 @@ func NewContext(width, height int) *Context {
 	dc.ReadDepth = true
 	dc.WriteDepth = true
 	dc.WriteColor = true
+	dc.AlphaBlend = false
 	dc.Wireframe = false
 	dc.screenMatrix = Screen(width, height)
 	dc.locks = make([]sync.Mutex, 256)
@@ -152,7 +154,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			}
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
 			i := y*dc.Width + x
-			if z >= dc.DepthBuffer[i] { // completely safe?
+			if dc.ReadDepth && z > dc.DepthBuffer[i] { // safe w/out lock?
 				continue
 			}
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
@@ -165,9 +167,27 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			c := color.NRGBA()
 			lock := &dc.locks[(x+y)&255]
 			lock.Lock()
-			if z < dc.DepthBuffer[i] {
-				dc.DepthBuffer[i] = z
-				dc.ColorBuffer.SetNRGBA(x, y, c)
+			if z <= dc.DepthBuffer[i] || !dc.ReadDepth {
+				if dc.WriteDepth {
+					dc.DepthBuffer[i] = z
+				}
+				if dc.WriteColor {
+					if dc.AlphaBlend && color.A < 1 {
+						sr, sg, sb, sa := c.RGBA()
+						a := (0xffff - sa) * 0x101
+						j := dc.ColorBuffer.PixOffset(x, y)
+						dr := &dc.ColorBuffer.Pix[j+0]
+						dg := &dc.ColorBuffer.Pix[j+1]
+						db := &dc.ColorBuffer.Pix[j+2]
+						da := &dc.ColorBuffer.Pix[j+3]
+						*dr = uint8((uint32(*dr)*a/0xffff + sr) >> 8)
+						*dg = uint8((uint32(*dg)*a/0xffff + sg) >> 8)
+						*db = uint8((uint32(*db)*a/0xffff + sb) >> 8)
+						*da = uint8((uint32(*da)*a/0xffff + sa) >> 8)
+					} else {
+						dc.ColorBuffer.SetNRGBA(x, y, c)
+					}
+				}
 			}
 			lock.Unlock()
 		}
@@ -238,4 +258,8 @@ func (dc *Context) DrawTriangles(triangles []*Triangle) {
 
 func (dc *Context) DrawMesh(mesh *Mesh) {
 	dc.DrawTriangles(mesh.Triangles)
+}
+
+func (dc *Context) DrawShape(shape Shape) {
+	dc.DrawMesh(shape.Mesh())
 }

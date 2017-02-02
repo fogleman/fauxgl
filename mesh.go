@@ -26,9 +26,13 @@ func (m *Mesh) Copy() *Mesh {
 	return NewMesh(triangles)
 }
 
-func (a *Mesh) Add(b *Mesh) {
+func (a *Mesh) AddMesh(b *Mesh) {
 	a.Triangles = append(a.Triangles, b.Triangles...)
 	a.dirty()
+}
+
+func (a *Mesh) AddShape(shape Shape) {
+	a.AddMesh(shape.Mesh())
 }
 
 func (m *Mesh) BoundingBox() Box {

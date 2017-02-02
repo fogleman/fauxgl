@@ -58,6 +58,10 @@ func (a Color) Opaque() Color {
 	return Color{a.R, a.G, a.B, 1}
 }
 
+func (a Color) Alpha(alpha float64) Color {
+	return Color{a.R, a.G, a.B, alpha}
+}
+
 func (a Color) Add(b Color) Color {
 	return Color{a.R + b.R, a.G + b.G, a.B + b.B, a.A + b.A}
 }

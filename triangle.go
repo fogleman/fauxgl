@@ -10,6 +10,13 @@ func NewTriangle(v1, v2, v3 Vertex) *Triangle {
 	return &t
 }
 
+func NewTriangleForPoints(p1, p2, p3 Vector) *Triangle {
+	v1 := Vertex{Position: p1}
+	v2 := Vertex{Position: p2}
+	v3 := Vertex{Position: p3}
+	return NewTriangle(v1, v2, v3)
+}
+
 func (t *Triangle) Normal() Vector {
 	e1 := t.V2.Position.Sub(t.V1.Position)
 	e2 := t.V3.Position.Sub(t.V1.Position)
