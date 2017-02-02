@@ -38,6 +38,7 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
+	context.ClearColorBufferWith(White)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
@@ -49,10 +50,8 @@ func main() {
 	color := HexColor("#B9121B")
 
 	// render
-	context.ClearColor = White
-	context.ClearColorBuffer()
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
 	start := time.Now()
+	context.Shader = NewDefaultShader(matrix, light, eye, color)
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 

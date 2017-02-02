@@ -45,16 +45,24 @@ func (dc *Context) Image() image.Image {
 	return dc.ColorBuffer
 }
 
-func (dc *Context) ClearColorBuffer() {
+func (dc *Context) ClearColorBufferWith(color Color) {
 	im := dc.ColorBuffer
-	src := image.NewUniform(dc.ClearColor.NRGBA())
+	src := image.NewUniform(color.NRGBA())
 	draw.Draw(im, im.Bounds(), src, image.ZP, draw.Src)
 }
 
-func (dc *Context) ClearDepthBuffer() {
+func (dc *Context) ClearColorBuffer() {
+	dc.ClearColorBufferWith(dc.ClearColor)
+}
+
+func (dc *Context) ClearDepthBufferWith(value float64) {
 	for i := range dc.DepthBuffer {
-		dc.DepthBuffer[i] = math.MaxFloat64
+		dc.DepthBuffer[i] = value
 	}
+}
+
+func (dc *Context) ClearDepthBuffer() {
+	dc.ClearDepthBufferWith(math.MaxFloat64)
 }
 
 func (dc *Context) line(s0, s1 Vector, color Color) {
@@ -169,7 +177,9 @@ func (dc *Context) drawClipped(v0, v1, v2 Vertex) {
 
 	// back face culling
 	if !dc.Wireframe {
-		if (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y)-(ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y) <= 0 {
+		a := (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y) - (ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y)
+		if a <= 0 {
+			// cw
 			return
 		}
 	}
