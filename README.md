@@ -16,15 +16,17 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - triangle rasterization
 - vertex and fragment "shaders"
 - view volume clipping
-- back-face culling
-- anti-aliasing via supersampling
+- face culling
+- alpha blending
 - textures
+- built-in shapes
+- anti-aliasing via supersampling
 
 ### TODO
 
 - lines and points
-- alpha blending
 - more built-in, configurable shaders
+- more built-in shapes
 
 ### Performance
 
@@ -65,7 +67,7 @@ var (
 	center = V(0, -0.07, 0)                // view center position
 	up     = V(0, 1, 0)                    // up vector
 	light  = V(-0.75, 1, 0.25).Normalize() // light direction
-	color  = HexColor(0x468966)            // object color
+	color  = HexColor("#468966")           // object color
 )
 
 func main() {
@@ -83,15 +85,15 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColorBuffer(HexColor(0xFFF8E3))
+	context.ClearColorBufferWith(HexColor("#FFF8E3"))
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	shader := NewDefaultShader(matrix, light, eye, color)
-	context.DrawMesh(mesh, shader)
+	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	context.DrawMesh(mesh)
 
 	// downsample image for antialiasing
 	image := context.Image()

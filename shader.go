@@ -39,3 +39,21 @@ func (shader *DefaultShader) Fragment(v Vertex) Color {
 	light := Clamp(diffuse+specular, 0.1, 1)
 	return color.MulScalar(light).Alpha(color.A)
 }
+
+type SolidColorShader struct {
+	Matrix Matrix
+	Color  Color
+}
+
+func NewSolidColorShader(matrix Matrix, color Color) *SolidColorShader {
+	return &SolidColorShader{matrix, color}
+}
+
+func (shader *SolidColorShader) Vertex(v Vertex) Vertex {
+	v.Output = shader.Matrix.MulPositionW(v.Position)
+	return v
+}
+
+func (shader *SolidColorShader) Fragment(v Vertex) Color {
+	return shader.Color
+}

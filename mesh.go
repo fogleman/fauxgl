@@ -17,6 +17,11 @@ func (m *Mesh) dirty() {
 	m.box = nil
 }
 
+func (m *Mesh) Mesh() *Mesh {
+	// satisfy Shape interface
+	return m
+}
+
 func (m *Mesh) Copy() *Mesh {
 	triangles := make([]*Triangle, len(m.Triangles))
 	for i, t := range m.Triangles {

@@ -65,9 +65,9 @@ func main() {
 	mesh.SmoothNormals()
 	mesh.Transform(Scale(V(2.5, 2.5, 2.5)))
 	context.Shader = NewDefaultShader(matrix, light, eye, HexColor("FFFF9D").Alpha(0.65))
-	context.AlphaBlend = true
 	context.DrawMesh(mesh)
 	context.Wireframe = true
+	context.DepthBias = -0.00001
 	context.DrawMesh(mesh)
 
 	// downsample image for antialiasing

@@ -7,6 +7,23 @@ import (
 	"sync"
 )
 
+type Face int
+
+const (
+	_ Face = iota
+	FaceCW
+	FaceCCW
+)
+
+type Cull int
+
+const (
+	_ Cull = iota
+	CullNone
+	CullFront
+	CullBack
+)
+
 type Context struct {
 	Width        int
 	Height       int
@@ -19,6 +36,10 @@ type Context struct {
 	WriteColor   bool
 	AlphaBlend   bool
 	Wireframe    bool
+	FrontFace    Face
+	Cull         Cull
+	LineWidth    float64
+	DepthBias    float64
 	screenMatrix Matrix
 	locks        []sync.Mutex
 }
@@ -34,8 +55,12 @@ func NewContext(width, height int) *Context {
 	dc.ReadDepth = true
 	dc.WriteDepth = true
 	dc.WriteColor = true
-	dc.AlphaBlend = false
+	dc.AlphaBlend = true
 	dc.Wireframe = false
+	dc.FrontFace = FaceCCW
+	dc.Cull = CullBack
+	dc.LineWidth = 2
+	dc.DepthBias = 0
 	dc.screenMatrix = Screen(width, height)
 	dc.locks = make([]sync.Mutex, 256)
 	dc.ClearDepthBuffer()
@@ -74,56 +99,20 @@ func (dc *Context) ClearDepthBuffer() {
 	dc.ClearDepthBufferWith(math.MaxFloat64)
 }
 
-func (dc *Context) line(s0, s1 Vector, color Color) {
-	c := color.NRGBA()
-	x0 := Round(s0.X)
-	y0 := Round(s0.Y)
-	x1 := Round(s1.X)
-	y1 := Round(s1.Y)
-	steep := false
-	if AbsInt(x0-x1) < AbsInt(y0-y1) {
-		steep = true
-		x0, y0 = y0, x0
-		x1, y1 = y1, x1
-	}
-	if x0 > x1 {
-		x0, x1 = x1, x0
-		y0, y1 = y1, y0
-	}
-	dx := x1 - x0
-	dy := y1 - y0
-	de2 := AbsInt(dy) * 2
-	e2 := 0
-	y := y0
-	for x := x0; x <= x1; x++ {
-		if steep {
-			dc.ColorBuffer.SetNRGBA(y, x, c)
-		} else {
-			dc.ColorBuffer.SetNRGBA(x, y, c)
-		}
-		e2 += de2
-		if e2 > dx {
-			if y1 > y0 {
-				y++
-			} else {
-				y--
-			}
-			e2 -= dx * 2
-		}
-	}
-}
-
 func edge(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
 func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
+	// integer bounding box
 	min := s0.Min(s1.Min(s2)).Floor()
 	max := s0.Max(s1.Max(s2)).Ceil()
 	x0 := int(min.X)
 	x1 := int(max.X)
 	y0 := int(min.Y)
 	y1 := int(max.Y)
+
+	// forward differencing variables
 	p := Vector{float64(x0) + 0.5, float64(y0) + 0.5, 0}
 	w00 := edge(s1, s2, p)
 	w01 := edge(s2, s0, p)
@@ -134,10 +123,14 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	b12 := s1.X - s2.X
 	a20 := s0.Y - s2.Y
 	b20 := s2.X - s0.X
+
+	// reciprocals
 	ra := 1 / edge(s0, s1, s2)
 	r0 := 1 / v0.Output.W
 	r1 := 1 / v1.Output.W
 	r2 := 1 / v2.Output.W
+
+	// iterate over all pixels in bounding box
 	for y := y0; y <= y1; y++ {
 		w0 := w00
 		w1 := w01
@@ -149,31 +142,39 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			w0 += a12
 			w1 += a20
 			w2 += a01
+			// check if inside triangle
 			if b0 < 0 || b1 < 0 || b2 < 0 {
 				continue
 			}
-			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
+			// check depth buffer for early abort
 			i := y*dc.Width + x
-			if dc.ReadDepth && z > dc.DepthBuffer[i] { // safe w/out lock?
+			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
+			bz := z + dc.DepthBias
+			if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
 				continue
 			}
+			// perspective-correct interpolation of vertex data
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
 			b.W = 1 / (b.X + b.Y + b.Z)
 			v := InterpolateVertexes(v0, v1, v2, b)
+			// invoke fragment shader
 			color := dc.Shader.Fragment(v)
 			if color == Discard {
 				continue
 			}
-			c := color.NRGBA()
+			// update buffers atomically
 			lock := &dc.locks[(x+y)&255]
 			lock.Lock()
-			if z <= dc.DepthBuffer[i] || !dc.ReadDepth {
+			// check depth buffer again
+			if bz <= dc.DepthBuffer[i] || !dc.ReadDepth {
 				if dc.WriteDepth {
+					// update depth buffer
 					dc.DepthBuffer[i] = z
 				}
 				if dc.WriteColor {
+					// update color buffer
 					if dc.AlphaBlend && color.A < 1 {
-						sr, sg, sb, sa := c.RGBA()
+						sr, sg, sb, sa := color.NRGBA().RGBA()
 						a := (0xffff - sa) * 0x101
 						j := dc.ColorBuffer.PixOffset(x, y)
 						dr := &dc.ColorBuffer.Pix[j+0]
@@ -185,7 +186,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 						*db = uint8((uint32(*db)*a/0xffff + sb) >> 8)
 						*da = uint8((uint32(*da)*a/0xffff + sa) >> 8)
 					} else {
-						dc.ColorBuffer.SetNRGBA(x, y, c)
+						dc.ColorBuffer.SetNRGBA(x, y, color.NRGBA())
 					}
 				}
 			}
@@ -197,43 +198,69 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	}
 }
 
+func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) {
+	n := s1.Sub(s0).Perpendicular().MulScalar(dc.LineWidth / 2)
+	s00 := s0.Add(n)
+	s01 := s0.Sub(n)
+	s10 := s1.Add(n)
+	s11 := s1.Sub(n)
+	dc.rasterize(v1, v0, v0, s11, s01, s00)
+	dc.rasterize(v1, v1, v0, s10, s11, s00)
+}
+
+func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
+	dc.line(v0, v1, s0, s1)
+	dc.line(v1, v2, s1, s2)
+	dc.line(v2, v0, s2, s0)
+}
+
 func (dc *Context) drawClipped(v0, v1, v2 Vertex) {
+	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
 	ndc2 := v2.Output.DivScalar(v2.Output.W).Vector()
 
 	// back face culling
-	if !dc.Wireframe {
+	if dc.Cull != CullNone {
 		a := (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y) - (ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y)
+		if dc.Cull == CullFront {
+			a = -a
+		}
+		if dc.FrontFace == FaceCW {
+			a = -a
+		}
 		if a <= 0 {
-			// cw
 			return
 		}
 	}
 
+	// screen coordinates
 	s0 := dc.screenMatrix.MulPosition(ndc0)
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 	s2 := dc.screenMatrix.MulPosition(ndc2)
+
+	// rasterize
 	if dc.Wireframe {
-		color := Black
-		dc.line(s0, s1, color)
-		dc.line(s1, s2, color)
-		dc.line(s2, s0, color)
+		dc.wireframe(v0, v1, v2, s0, s1, s2)
 	} else {
 		dc.rasterize(v0, v1, v2, s0, s1, s2)
 	}
 }
 
 func (dc *Context) DrawTriangle(t *Triangle) {
+	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
 	v2 := dc.Shader.Vertex(t.V2)
 	v3 := dc.Shader.Vertex(t.V3)
+
 	if v1.Outside() || v2.Outside() || v3.Outside() {
+		// clip to viewing volume
 		triangles := ClipTriangle(NewTriangle(v1, v2, v3))
 		for _, t := range triangles {
 			dc.drawClipped(t.V1, t.V2, t.V3)
 		}
 	} else {
+		// no need to clip
 		dc.drawClipped(v1, v2, v3)
 	}
 }
