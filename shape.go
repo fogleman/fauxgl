@@ -5,7 +5,8 @@ type Shape interface {
 }
 
 type Plane struct {
-	P, N     Vector
+	Point    Vector
+	Normal   Vector
 	HalfSize float64
 }
 
@@ -23,7 +24,7 @@ func (p *Plane) Mesh() *Mesh {
 		NewTriangleForPoints(v1, v2, v3),
 		NewTriangleForPoints(v1, v3, v4),
 	})
-	mesh.Transform(RotateTo(Vector{0, 0, 1}, p.N).Translate(p.P))
+	mesh.Transform(RotateTo(Vector{0, 0, 1}, p.Normal).Translate(p.Point))
 	return mesh
 }
 
