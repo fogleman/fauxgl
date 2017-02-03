@@ -26,6 +26,9 @@ func (shader *DefaultShader) Vertex(v Vertex) Vertex {
 
 func (shader *DefaultShader) Fragment(v Vertex) Color {
 	color := shader.Color
+	if color == Discard {
+		color = v.Color
+	}
 	if shader.Texture != nil {
 		color = shader.Texture.BilinearSample(v.Texture.X, v.Texture.Y)
 	}
