@@ -129,13 +129,35 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	r0 := 1 / v0.Output.W
 	r1 := 1 / v1.Output.W
 	r2 := 1 / v2.Output.W
+	ra12 := 1 / a12
+	ra20 := 1 / a20
+	ra01 := 1 / a01
 
 	// iterate over all pixels in bounding box
 	for y := y0; y <= y1; y++ {
-		w0 := w00
-		w1 := w01
-		w2 := w02
-		for x := x0; x <= x1; x++ {
+		var d float64
+		d0 := -w00 * ra12
+		d1 := -w01 * ra20
+		d2 := -w02 * ra01
+		if w00 < 0 && d0 > d {
+			d = d0
+		}
+		if w01 < 0 && d1 > d {
+			d = d1
+		}
+		if w02 < 0 && d2 > d {
+			d = d2
+		}
+		d = float64(int(d))
+		if d < 0 {
+			// occurs in pathological cases
+			d = 0
+		}
+		w0 := w00 + a12*d
+		w1 := w01 + a20*d
+		w2 := w02 + a01*d
+		wasInside := false
+		for x := x0 + int(d); x <= x1; x++ {
 			b0 := w0 * ra
 			b1 := w1 * ra
 			b2 := w2 * ra
@@ -144,8 +166,12 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			w2 += a01
 			// check if inside triangle
 			if b0 < 0 || b1 < 0 || b2 < 0 {
+				if wasInside {
+					break
+				}
 				continue
 			}
+			wasInside = true
 			// check depth buffer for early abort
 			i := y*dc.Width + x
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z

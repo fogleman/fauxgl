@@ -10,16 +10,16 @@ import (
 
 const (
 	scale  = 4    // optional supersampling
-	width  = 1024 // output width in pixels
-	height = 1024 // output height in pixels
-	fovy   = 40   // vertical field of view in degrees
+	width  = 2048 // output width in pixels
+	height = 2048 // output height in pixels
+	fovy   = 10   // vertical field of view in degrees
 	near   = 1    // near clipping plane
-	far    = 10   // far clipping plane
+	far    = 100  // far clipping plane
 )
 
 var (
-	eye    = V(-3, -3, 1.5)                 // camera position
-	center = V(0, 0, -0.25)                 // view center position
+	eye    = V(-10, -10, 10)                // camera position
+	center = V(0, 0, -0.3)                  // view center position
 	up     = V(0, 0, 1)                     // up vector
 	light  = V(-0.75, -0.25, 1).Normalize() // light direction
 )
@@ -30,6 +30,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println(len(mesh.Triangles))
+	mesh.SaveSTL("out.stl")
 
 	// fit mesh in a bi-unit cube centered at the origin
 	mesh.BiUnitCube()
@@ -43,8 +46,17 @@ func main() {
 
 	// render
 	context.ClearColorBufferWith(Black)
-	context.Shader = NewDefaultShader(matrix, light, eye, Discard)
+	ambient := Color{0.4, 0.4, 0.4, 1}
+	diffuse := Color{0.9, 0.9, 0.9, 1}
+	context.Shader = NewDiffuseShader(matrix, light, Discard, ambient, diffuse)
 	start := time.Now()
+	context.DrawMesh(mesh)
+	fmt.Println(time.Since(start))
+
+	context.Shader = NewSolidColorShader(matrix, Black)
+	context.Wireframe = true
+	context.DepthBias = -1e-5
+	start = time.Now()
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 

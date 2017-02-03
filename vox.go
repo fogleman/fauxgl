@@ -18,10 +18,6 @@ type VOXChunk struct {
 	ChildrenBytes int32
 }
 
-type VOXSize struct {
-	X, Y, Z int32
-}
-
 type VOXVoxel struct {
 	X, Y, Z, I uint8
 }
@@ -46,7 +42,7 @@ func LoadVOX(path string) (*Mesh, error) {
 		return nil, errors.New("unsupported vox version")
 	}
 
-	var voxels []VOXVoxel
+	var voxVoxels []VOXVoxel
 	var palette [256]Color
 
 	for {
@@ -61,11 +57,6 @@ func LoadVOX(path string) (*Mesh, error) {
 
 		id := string(chunk.ID[:])
 		switch id {
-		case "SIZE":
-			size := VOXSize{}
-			if err := binary.Read(file, binary.LittleEndian, &size); err != nil {
-				return nil, err
-			}
 		case "XYZI":
 			var numVoxels uint32
 			if err := binary.Read(file, binary.LittleEndian, &numVoxels); err != nil {
@@ -76,7 +67,7 @@ func LoadVOX(path string) (*Mesh, error) {
 				if err := binary.Read(file, binary.LittleEndian, &voxel); err != nil {
 					return nil, err
 				}
-				voxels = append(voxels, voxel)
+				voxVoxels = append(voxVoxels, voxel)
 			}
 		case "RGBA":
 			for i := 0; i <= 254; i++ {
@@ -95,21 +86,11 @@ func LoadVOX(path string) (*Mesh, error) {
 		}
 	}
 
-	mesh := NewMesh(nil)
-	for _, v := range voxels {
-		x := float64(v.X) + 0.5
-		y := float64(v.Y) + 0.5
-		z := float64(v.Z) + 0.5
-		c := palette[v.I]
-		cube := NewCube()
-		cube.Transform(Translate(Vector{x, y, z}))
-		for _, t := range cube.Triangles {
-			t.V1.Color = c
-			t.V2.Color = c
-			t.V3.Color = c
-		}
-		mesh.Add(cube)
+	voxels := make([]Voxel, len(voxVoxels))
+	for i, v := range voxVoxels {
+		voxels[i] = Voxel{int(v.X), int(v.Y), int(v.Z), palette[v.I]}
 	}
 
+	mesh := NewVoxelMesh(voxels)
 	return mesh, nil
 }
