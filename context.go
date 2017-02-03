@@ -286,7 +286,3 @@ func (dc *Context) DrawTriangles(triangles []*Triangle) {
 func (dc *Context) DrawMesh(mesh *Mesh) {
 	dc.DrawTriangles(mesh.Triangles)
 }
-
-func (dc *Context) DrawShape(shape Shape) {
-	dc.DrawMesh(shape.Mesh())
-}

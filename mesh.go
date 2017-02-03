@@ -17,11 +17,6 @@ func (m *Mesh) dirty() {
 	m.box = nil
 }
 
-func (m *Mesh) Mesh() *Mesh {
-	// satisfy Shape interface
-	return m
-}
-
 func (m *Mesh) Copy() *Mesh {
 	triangles := make([]*Triangle, len(m.Triangles))
 	for i, t := range m.Triangles {
@@ -31,13 +26,9 @@ func (m *Mesh) Copy() *Mesh {
 	return NewMesh(triangles)
 }
 
-func (a *Mesh) AddMesh(b *Mesh) {
+func (a *Mesh) Add(b *Mesh) {
 	a.Triangles = append(a.Triangles, b.Triangles...)
 	a.dirty()
-}
-
-func (a *Mesh) AddShape(shape Shape) {
-	a.AddMesh(shape.Mesh())
 }
 
 func (m *Mesh) BoundingBox() Box {
@@ -91,12 +82,13 @@ func (m *Mesh) SmoothNormals() {
 }
 
 func (m *Mesh) UnitCube() {
-	m.FitInside(Box{Vector{}, Vector{1, 1, 1}}, Vector{})
-	m.MoveTo(Vector{}, Vector{0.5, 0.5, 0.5})
+	const r = 0.5
+	m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 }
 
 func (m *Mesh) BiUnitCube() {
-	m.FitInside(Box{Vector{-1, -1, -1}, Vector{1, 1, 1}}, Vector{0.5, 0.5, 0.5})
+	const r = 1
+	m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 }
 
 func (m *Mesh) MoveTo(position, anchor Vector) {

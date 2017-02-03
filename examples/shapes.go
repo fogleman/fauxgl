@@ -41,10 +41,12 @@ func main() {
 			}
 		}
 		p := Vector{x, y, z}.MulScalar(4)
-		s := V(0.1, 0.1, 0.1)
+		s := V(0.2, 0.2, 0.2)
 		u := RandomUnitVector()
 		a := rand.Float64() * 2 * math.Pi
-		mesh.AddShape(NewCube(p, s, u, a))
+		c := NewCube()
+		c.Transform(Orient(p, s, u, a))
+		mesh.Add(c)
 	}
 
 	// create a rendering context
