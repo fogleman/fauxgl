@@ -51,7 +51,11 @@ func HexColor(x string) Color {
 
 func (c Color) NRGBA() color.NRGBA {
 	const d = 0xff
-	return color.NRGBA{uint8(c.R * d), uint8(c.G * d), uint8(c.B * d), uint8(c.A * d)}
+	r := Clamp(c.R, 0, 1)
+	g := Clamp(c.G, 0, 1)
+	b := Clamp(c.B, 0, 1)
+	a := Clamp(c.A, 0, 1)
+	return color.NRGBA{uint8(r * d), uint8(g * d), uint8(b * d), uint8(a * d)}
 }
 
 func (a Color) Opaque() Color {
@@ -92,6 +96,10 @@ func (a Color) MulScalar(b float64) Color {
 
 func (a Color) DivScalar(b float64) Color {
 	return Color{a.R / b, a.G / b, a.B / b, a.A / b}
+}
+
+func (a Color) Pow(b float64) Color {
+	return Color{math.Pow(a.R, b), math.Pow(a.G, b), math.Pow(a.B, b), math.Pow(a.A, b)}
 }
 
 func (a Color) Min(b Color) Color {

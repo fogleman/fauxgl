@@ -60,3 +60,30 @@ func (shader *SolidColorShader) Vertex(v Vertex) Vertex {
 func (shader *SolidColorShader) Fragment(v Vertex) Color {
 	return shader.Color
 }
+
+type DiffuseShader struct {
+	Matrix   Matrix
+	LightDir Vector
+	Color    Color
+	Ambient  Color
+	Diffuse  Color
+}
+
+func NewDiffuseShader(matrix Matrix, light Vector, color, ambient, diffuse Color) *DiffuseShader {
+	return &DiffuseShader{matrix, light, color, ambient, diffuse}
+}
+
+func (shader *DiffuseShader) Vertex(v Vertex) Vertex {
+	v.Output = shader.Matrix.MulPositionW(v.Position)
+	return v
+}
+
+func (shader *DiffuseShader) Fragment(v Vertex) Color {
+	color := shader.Color
+	if color == Discard {
+		color = v.Color
+	}
+	diffuse := math.Max(v.Normal.Dot(shader.LightDir), 0)
+	light := shader.Ambient.Add(shader.Diffuse.MulScalar(diffuse))
+	return color.Mul(light).Alpha(color.A)
+}
