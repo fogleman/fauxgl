@@ -244,7 +244,7 @@ func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	dc.line(v2, v0, s2, s0)
 }
 
-func (dc *Context) drawClipped(v0, v1, v2 Vertex) {
+func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
@@ -277,6 +277,54 @@ func (dc *Context) drawClipped(v0, v1, v2 Vertex) {
 	}
 }
 
+func (dc *Context) drawClippedLine(v0, v1 Vertex) {
+	// normalized device coordinates
+	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
+	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
+
+	// screen coordinates
+	s0 := dc.screenMatrix.MulPosition(ndc0)
+	s1 := dc.screenMatrix.MulPosition(ndc1)
+
+	// rasterize
+	dc.line(v0, v1, s0, s1)
+}
+
+func (dc *Context) DrawLine(t *Line) {
+	// invoke vertex shader
+	v1 := dc.Shader.Vertex(t.V1)
+	v2 := dc.Shader.Vertex(t.V2)
+
+	if v1.Outside() || v2.Outside() {
+		// clip to viewing volume
+		line := ClipLine(NewLine(v1, v2))
+		if line != nil {
+			dc.drawClippedLine(line.V1, line.V2)
+		}
+	} else {
+		// no need to clip
+		dc.drawClippedLine(v1, v2)
+	}
+}
+
+func (dc *Context) DrawLines(lines []*Line) {
+	wn := runtime.NumCPU()
+	done := make(chan bool, wn)
+	for wi := 0; wi < wn; wi++ {
+		go func(wi int) {
+			for i, l := range lines {
+				if i%wn == wi {
+					dc.DrawLine(l)
+				}
+			}
+			done <- true
+		}(wi)
+	}
+	for wi := 0; wi < wn; wi++ {
+		<-done
+	}
+}
+
 func (dc *Context) DrawTriangle(t *Triangle) {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
@@ -287,11 +335,11 @@ func (dc *Context) DrawTriangle(t *Triangle) {
 		// clip to viewing volume
 		triangles := ClipTriangle(NewTriangle(v1, v2, v3))
 		for _, t := range triangles {
-			dc.drawClipped(t.V1, t.V2, t.V3)
+			dc.drawClippedTriangle(t.V1, t.V2, t.V3)
 		}
 	} else {
 		// no need to clip
-		dc.drawClipped(v1, v2, v3)
+		dc.drawClippedTriangle(v1, v2, v3)
 	}
 }
 

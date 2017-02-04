@@ -72,3 +72,26 @@ func ClipTriangle(t *Triangle) []*Triangle {
 	}
 	return result
 }
+
+func ClipLine(l *Line) *Line {
+	w1 := l.V1.Output
+	w2 := l.V2.Output
+	for _, plane := range clipPlanes {
+		f1 := plane.pointInFront(w1)
+		f2 := plane.pointInFront(w2)
+		if f1 && f2 {
+			continue
+		} else if f1 {
+			w2 = plane.intersectSegment(w1, w2)
+		} else if f2 {
+			w1 = plane.intersectSegment(w2, w1)
+		} else {
+			return nil
+		}
+	}
+	v1 := l.V1
+	v2 := l.V2
+	v1.Output = w1
+	v2.Output = w2
+	return NewLine(v1, v2)
+}
