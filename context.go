@@ -363,4 +363,5 @@ func (dc *Context) DrawTriangles(triangles []*Triangle) {
 
 func (dc *Context) DrawMesh(mesh *Mesh) {
 	dc.DrawTriangles(mesh.Triangles)
+	dc.DrawLines(mesh.Lines)
 }

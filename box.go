@@ -1,20 +1,31 @@
 package fauxgl
 
+var EmptyBox = Box{}
+
 type Box struct {
 	Min, Max Vector
 }
 
 func BoxForTriangles(triangles []*Triangle) Box {
 	if len(triangles) == 0 {
-		return Box{}
+		return EmptyBox
 	}
-	min := triangles[0].V1.Position
-	max := triangles[0].V1.Position
+	box := triangles[0].BoundingBox()
 	for _, t := range triangles {
-		min = min.Min(t.V1.Position).Min(t.V2.Position).Min(t.V3.Position)
-		max = max.Max(t.V1.Position).Max(t.V2.Position).Max(t.V3.Position)
+		box = box.Extend(t.BoundingBox())
 	}
-	return Box{min, max}
+	return box
+}
+
+func BoxForLines(lines []*Line) Box {
+	if len(lines) == 0 {
+		return EmptyBox
+	}
+	box := lines[0].BoundingBox()
+	for _, l := range lines {
+		box = box.Extend(l.BoundingBox())
+	}
+	return box
 }
 
 func (a Box) Anchor(anchor Vector) Vector {
@@ -30,6 +41,9 @@ func (a Box) Size() Vector {
 }
 
 func (a Box) Extend(b Box) Box {
+	if a == EmptyBox {
+		return b
+	}
 	return Box{a.Min.Min(b.Min), a.Max.Max(b.Max)}
 }
 

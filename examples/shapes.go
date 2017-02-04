@@ -29,7 +29,7 @@ var (
 )
 
 func main() {
-	mesh := NewMesh(nil)
+	mesh := NewEmptyMesh()
 	for i := 0; i < 1500; i++ {
 		var x, y, z float64
 		for {

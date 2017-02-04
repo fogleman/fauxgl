@@ -126,7 +126,77 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 		}
 	}
 
-	return NewMesh(triangles)
+	return NewTriangleMesh(triangles)
+}
+
+func NewVoxelLineMesh(voxels []Voxel) *Mesh {
+	color := make(map[Voxel]Color)
+	for _, v := range voxels {
+		color[v.key(0, 0, 0)] = v.Color
+	}
+
+	var lines []*Line
+	for _, v := range voxels {
+		for i := 0; i < 8; i++ {
+			xi := (i&4>>2)*2 - 1
+			yi := (i&2>>1)*2 - 1
+			zi := (i&1>>0)*2 - 1
+			for j := 0; j < 8; j++ {
+				xj := (j&4>>2)*2 - 1
+				yj := (j&2>>1)*2 - 1
+				zj := (j&1>>0)*2 - 1
+				n := 0
+				m := 0
+				if xi == xj {
+					n++
+					m |= 4
+				}
+				if yi == yj {
+					n++
+					m |= 2
+				}
+				if zi == zj {
+					n++
+					m |= 1
+				}
+				if n != 2 {
+					continue
+				}
+				adj := 0
+				diag := 0
+				for k := 0; k < 8; k++ {
+					km := k & m
+					if km == 0 {
+						continue
+					}
+					kx := km & 4 >> 2
+					ky := km & 2 >> 1
+					kz := km & 1 >> 0
+					if color[v.key(kx*xi, ky*yi, kz*zi)] == v.Color {
+						if kx+ky+kz == 1 {
+							adj++
+						} else {
+							diag++
+						}
+					}
+				}
+				if adj == 2 {
+					continue
+				}
+				if adj == 4 && diag == 2 {
+					continue
+				}
+				x := float64(v.X)
+				y := float64(v.Y)
+				z := float64(v.Z)
+				pi := Vector{x + 0.5*float64(xi), y + 0.5*float64(yi), z + 0.5*float64(zi)}
+				pj := Vector{x + 0.5*float64(xj), y + 0.5*float64(yj), z + 0.5*float64(zj)}
+				lines = append(lines, NewLineForPoints(pi, pj))
+			}
+		}
+	}
+
+	return NewLineMesh(lines)
 }
 
 func combineVoxelFaces(faces []voxelFace) []voxelFace {

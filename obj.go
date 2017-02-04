@@ -75,5 +75,5 @@ func LoadOBJ(path string) (*Mesh, error) {
 			}
 		}
 	}
-	return NewMesh(triangles), scanner.Err()
+	return NewTriangleMesh(triangles), scanner.Err()
 }

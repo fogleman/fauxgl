@@ -22,7 +22,7 @@ type VOXVoxel struct {
 	X, Y, Z, I uint8
 }
 
-func LoadVOX(path string) (*Mesh, error) {
+func LoadVOX(path string) ([]Voxel, error) {
 	// open file
 	file, err := os.Open(path)
 	if err != nil {
@@ -100,8 +100,7 @@ func LoadVOX(path string) (*Mesh, error) {
 		voxels[i] = Voxel{int(v.X), int(v.Y), int(v.Z), palette[v.I]}
 	}
 
-	mesh := NewVoxelMesh(voxels)
-	return mesh, nil
+	return voxels, nil
 }
 
 var voxDefaultPalette = []int{

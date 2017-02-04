@@ -5,7 +5,7 @@ func NewPlane() *Mesh {
 	v2 := Vector{0.5, -0.5, 0}
 	v3 := Vector{0.5, 0.5, 0}
 	v4 := Vector{-0.5, 0.5, 0}
-	return NewMesh([]*Triangle{
+	return NewTriangleMesh([]*Triangle{
 		NewTriangleForPoints(v1, v2, v3),
 		NewTriangleForPoints(v1, v3, v4),
 	})
@@ -16,7 +16,7 @@ func NewCube() *Mesh {
 		{-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1},
 		{1, -1, -1}, {1, -1, 1}, {1, 1, -1}, {1, 1, 1},
 	}
-	mesh := NewMesh([]*Triangle{
+	mesh := NewTriangleMesh([]*Triangle{
 		NewTriangleForPoints(v[3], v[5], v[7]),
 		NewTriangleForPoints(v[5], v[3], v[1]),
 		NewTriangleForPoints(v[0], v[6], v[4]),

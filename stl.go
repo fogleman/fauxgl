@@ -73,7 +73,7 @@ func loadSTLA(file *os.File) (*Mesh, error) {
 		t.FixNormals()
 		triangles = append(triangles, &t)
 	}
-	return NewMesh(triangles), scanner.Err()
+	return NewTriangleMesh(triangles), scanner.Err()
 }
 
 func loadSTLB(file *os.File) (*Mesh, error) {
@@ -95,7 +95,7 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 		t.FixNormals()
 		triangles[i] = &t
 	}
-	return NewMesh(triangles), nil
+	return NewTriangleMesh(triangles), nil
 }
 
 func SaveSTL(path string, mesh *Mesh) error {

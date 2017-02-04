@@ -20,51 +20,28 @@ const (
 
 var (
 	eye    = V(-10, -10, 10)                // camera position
-	center = V(0, 0, -0.2)                  // view center position
+	center = V(0, 0, -0.25)                 // view center position
 	up     = V(0, 0, 1)                     // up vector
 	light  = V(-0.25, -0.75, 1).Normalize() // light direction
 )
 
-func axisAligned(p1, p2 Vector) bool {
-	count := 0
-	if p1.X == p2.X {
-		count++
-	}
-	if p1.Y == p2.Y {
-		count++
-	}
-	if p1.Z == p2.Z {
-		count++
-	}
-	return count >= 2
-}
-
 func main() {
 	// load a mesh
-	mesh, err := LoadVOX(os.Args[1])
+	voxels, err := LoadVOX(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(len(mesh.Triangles))
+
+	mesh := NewEmptyMesh()
+	mesh.Add(NewVoxelMesh(voxels))
+	mesh.Add(NewVoxelLineMesh(voxels))
+
+	fmt.Println(len(voxels), "voxels")
+	fmt.Println(len(mesh.Triangles), "triangles")
+	fmt.Println(len(mesh.Lines), "lines")
 
 	// fit mesh in a bi-unit cube centered at the origin
 	mesh.BiUnitCube()
-
-	var lines []*Line
-	for _, t := range mesh.Triangles {
-		p1 := t.V1.Position
-		p2 := t.V2.Position
-		p3 := t.V3.Position
-		if axisAligned(p1, p2) {
-			lines = append(lines, NewLine(t.V1, t.V2))
-		}
-		if axisAligned(p2, p3) {
-			lines = append(lines, NewLine(t.V2, t.V3))
-		}
-		if axisAligned(p3, p1) {
-			lines = append(lines, NewLine(t.V3, t.V1))
-		}
-	}
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
@@ -72,7 +49,8 @@ func main() {
 	// create transformation matrix and light direction
 	// aspect := float64(width) / float64(height)
 	// matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
-	matrix := LookAt(eye, center, up).Orthographic(-1.45, 1.45, -1.45, 1.45, -20, 20)
+	const s = 1.5
+	matrix := LookAt(eye, center, up).Orthographic(-s, s, -s, s, -20, 20)
 
 	// render
 	context.ClearColorBufferWith(HexColor("323"))
@@ -80,15 +58,15 @@ func main() {
 	diffuse := Color{0.9, 0.9, 0.9, 1}
 	context.Shader = NewDiffuseShader(matrix, light, Discard, ambient, diffuse)
 	start := time.Now()
-	context.DrawMesh(mesh)
+	context.DrawTriangles(mesh.Triangles)
 	fmt.Println(time.Since(start))
 
 	context.Shader = NewSolidColorShader(matrix, HexColor("000"))
 	context.Wireframe = true
-	context.LineWidth = 8
+	context.LineWidth = scale * 2
 	context.DepthBias = -1e-4
 	start = time.Now()
-	context.DrawLines(lines)
+	context.DrawLines(mesh.Lines)
 	fmt.Println(time.Since(start))
 
 	// downsample image for antialiasing

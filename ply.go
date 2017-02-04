@@ -178,7 +178,7 @@ func loadPlyAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 			}
 		}
 	}
-	return NewMesh(triangles), nil
+	return NewTriangleMesh(triangles), nil
 }
 
 func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder) (*Mesh, error) {
@@ -232,7 +232,7 @@ func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder)
 			}
 		}
 	}
-	return NewMesh(triangles), nil
+	return NewTriangleMesh(triangles), nil
 }
 
 func readPlyInt(file *os.File, order binary.ByteOrder, dataType plyDataType) (int, error) {

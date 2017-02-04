@@ -36,3 +36,18 @@ func (t *Triangle) FixNormals() {
 		t.V3.Normal = n
 	}
 }
+
+func (t *Triangle) BoundingBox() Box {
+	min := t.V1.Position.Min(t.V2.Position).Min(t.V3.Position)
+	max := t.V1.Position.Max(t.V2.Position).Max(t.V3.Position)
+	return Box{min, max}
+}
+
+func (t *Triangle) Transform(matrix Matrix) {
+	t.V1.Position = matrix.MulPosition(t.V1.Position)
+	t.V2.Position = matrix.MulPosition(t.V2.Position)
+	t.V3.Position = matrix.MulPosition(t.V3.Position)
+	t.V1.Normal = matrix.MulDirection(t.V1.Normal)
+	t.V2.Normal = matrix.MulDirection(t.V2.Normal)
+	t.V3.Normal = matrix.MulDirection(t.V3.Normal)
+}
