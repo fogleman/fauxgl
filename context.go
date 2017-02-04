@@ -174,6 +174,10 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			wasInside = true
 			// check depth buffer for early abort
 			i := y*dc.Width + x
+			if i < 0 || i >= len(dc.DepthBuffer) {
+				// TODO: clipping roundoff error; fix
+				continue
+			}
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
 			bz := z + dc.DepthBias
 			if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
