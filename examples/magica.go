@@ -25,14 +25,32 @@ var (
 	light  = V(-0.25, -0.75, 1).Normalize() // light direction
 )
 
+func timed(name string) func() {
+	if len(name) > 0 {
+		fmt.Printf("%s... ", name)
+	}
+	start := time.Now()
+	return func() {
+		fmt.Println(time.Since(start))
+	}
+}
+
 func main() {
+	total := timed("")
+
+	var done func()
+
 	// load a mesh
+	done = timed("loading vox file")
 	voxels, err := LoadVOX(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
+	done()
 
+	done = timed("generating mesh")
 	mesh := NewVoxelMesh(voxels)
+	done()
 
 	fmt.Println(len(voxels), "voxels")
 	fmt.Println(len(mesh.Triangles), "triangles")
@@ -55,22 +73,28 @@ func main() {
 	ambient := Color{0.4, 0.4, 0.4, 1}
 	diffuse := Color{0.9, 0.9, 0.9, 1}
 	context.Shader = NewDiffuseShader(matrix, light, Discard, ambient, diffuse)
-	start := time.Now()
+	done = timed("rendering triangles")
 	context.DrawTriangles(mesh.Triangles)
-	fmt.Println(time.Since(start))
+	done()
 
 	context.Shader = NewSolidColorShader(matrix, HexColor("000"))
 	context.Wireframe = true
 	context.LineWidth = scale * 2
-	context.DepthBias = -1e-4
-	start = time.Now()
+	context.DepthBias = -4e-5
+	done = timed("rendering lines")
 	context.DrawLines(mesh.Lines)
-	fmt.Println(time.Since(start))
+	done()
 
 	// downsample image for antialiasing
+	done = timed("downsampling image")
 	image := context.Image()
 	image = resize.Resize(width, height, image, resize.Bilinear)
+	done()
 
 	// save image
+	done = timed("writing output")
 	SavePNG("out.png", image)
+	done()
+
+	total()
 }

@@ -230,6 +230,8 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 
 func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) {
 	n := s1.Sub(s0).Perpendicular().MulScalar(dc.LineWidth / 2)
+	s0 = s0.Add(s0.Sub(s1).Normalize().MulScalar(dc.LineWidth / 2))
+	s1 = s1.Add(s1.Sub(s0).Normalize().MulScalar(dc.LineWidth / 2))
 	s00 := s0.Add(n)
 	s01 := s0.Sub(n)
 	s10 := s1.Add(n)
