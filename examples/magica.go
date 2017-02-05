@@ -32,9 +32,7 @@ func main() {
 		panic(err)
 	}
 
-	mesh := NewEmptyMesh()
-	mesh.Add(NewVoxelMesh(voxels))
-	mesh.Add(NewVoxelLineMesh(voxels))
+	mesh := NewVoxelMesh(voxels)
 
 	fmt.Println(len(voxels), "voxels")
 	fmt.Println(len(mesh.Triangles), "triangles")
