@@ -176,6 +176,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			i := y*dc.Width + x
 			if i < 0 || i >= len(dc.DepthBuffer) {
 				// TODO: clipping roundoff error; fix
+				// TODO: could also be from fat lines going off screen
 				continue
 			}
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
@@ -246,6 +247,19 @@ func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	dc.line(v2, v0, s2, s0)
 }
 
+func (dc *Context) drawClippedLine(v0, v1 Vertex) {
+	// normalized device coordinates
+	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
+	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
+
+	// screen coordinates
+	s0 := dc.screenMatrix.MulPosition(ndc0)
+	s1 := dc.screenMatrix.MulPosition(ndc1)
+
+	// rasterize
+	dc.line(v0, v1, s0, s1)
+}
+
 func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
@@ -279,19 +293,6 @@ func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 	}
 }
 
-func (dc *Context) drawClippedLine(v0, v1 Vertex) {
-	// normalized device coordinates
-	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
-	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
-
-	// screen coordinates
-	s0 := dc.screenMatrix.MulPosition(ndc0)
-	s1 := dc.screenMatrix.MulPosition(ndc1)
-
-	// rasterize
-	dc.line(v0, v1, s0, s1)
-}
-
 func (dc *Context) DrawLine(t *Line) {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
@@ -306,24 +307,6 @@ func (dc *Context) DrawLine(t *Line) {
 	} else {
 		// no need to clip
 		dc.drawClippedLine(v1, v2)
-	}
-}
-
-func (dc *Context) DrawLines(lines []*Line) {
-	wn := runtime.NumCPU()
-	done := make(chan bool, wn)
-	for wi := 0; wi < wn; wi++ {
-		go func(wi int) {
-			for i, l := range lines {
-				if i%wn == wi {
-					dc.DrawLine(l)
-				}
-			}
-			done <- true
-		}(wi)
-	}
-	for wi := 0; wi < wn; wi++ {
-		<-done
 	}
 }
 
@@ -342,6 +325,24 @@ func (dc *Context) DrawTriangle(t *Triangle) {
 	} else {
 		// no need to clip
 		dc.drawClippedTriangle(v1, v2, v3)
+	}
+}
+
+func (dc *Context) DrawLines(lines []*Line) {
+	wn := runtime.NumCPU()
+	done := make(chan bool, wn)
+	for wi := 0; wi < wn; wi++ {
+		go func(wi int) {
+			for i, l := range lines {
+				if i%wn == wi {
+					dc.DrawLine(l)
+				}
+			}
+			done <- true
+		}(wi)
+	}
+	for wi := 0; wi < wn; wi++ {
+		<-done
 	}
 }
 
