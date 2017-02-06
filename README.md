@@ -20,11 +20,11 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - alpha blending
 - textures
 - built-in shapes
-- anti-aliasing via supersampling
+- anti-aliasing (via supersampling)
+- voxel rendering
 
 ### TODO
 
-- lines and points
 - more built-in, configurable shaders
 - more built-in shapes
 
