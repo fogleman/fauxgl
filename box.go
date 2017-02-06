@@ -6,28 +6,6 @@ type Box struct {
 	Min, Max Vector
 }
 
-func BoxForTriangles(triangles []*Triangle) Box {
-	if len(triangles) == 0 {
-		return EmptyBox
-	}
-	box := triangles[0].BoundingBox()
-	for _, t := range triangles {
-		box = box.Extend(t.BoundingBox())
-	}
-	return box
-}
-
-func BoxForLines(lines []*Line) Box {
-	if len(lines) == 0 {
-		return EmptyBox
-	}
-	box := lines[0].BoundingBox()
-	for _, l := range lines {
-		box = box.Extend(l.BoundingBox())
-	}
-	return box
-}
-
 func (a Box) Anchor(anchor Vector) Vector {
 	return a.Min.Add(a.Size().Mul(anchor))
 }

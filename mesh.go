@@ -120,8 +120,12 @@ func (m *Mesh) FitInside(box Box, anchor Vector) {
 func (m *Mesh) BoundingBox() Box {
 	if m.box == nil {
 		box := EmptyBox
-		box = box.Extend(BoxForTriangles(m.Triangles))
-		box = box.Extend(BoxForLines(m.Lines))
+		for _, t := range m.Triangles {
+			box = box.Extend(t.BoundingBox())
+		}
+		for _, l := range m.Lines {
+			box = box.Extend(l.BoundingBox())
+		}
 		m.box = &box
 	}
 	return *m.box
