@@ -53,23 +53,13 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 	// find exposed faces
 	planeFaces := make(map[voxelPlane][]voxelFace)
 	for _, v := range voxels {
-		if !lookup[key{v.X, v.Y, v.Z + 1}] {
-			plane := voxelPlane{voxelPosZ, v.Z, v.Color}
-			face := voxelFace{v.X, v.Y, v.X, v.Y}
-			planeFaces[plane] = append(planeFaces[plane], face)
-		}
-		if !lookup[key{v.X, v.Y, v.Z - 1}] {
-			plane := voxelPlane{voxelNegZ, v.Z, v.Color}
-			face := voxelFace{v.X, v.Y, v.X, v.Y}
-			planeFaces[plane] = append(planeFaces[plane], face)
-		}
-		if !lookup[key{v.X, v.Y - 1, v.Z}] {
-			plane := voxelPlane{voxelNegY, v.Y, v.Color}
-			face := voxelFace{v.X, v.Z, v.X, v.Z}
-			planeFaces[plane] = append(planeFaces[plane], face)
-		}
 		if !lookup[key{v.X + 1, v.Y, v.Z}] {
 			plane := voxelPlane{voxelPosX, v.X, v.Color}
+			face := voxelFace{v.Y, v.Z, v.Y, v.Z}
+			planeFaces[plane] = append(planeFaces[plane], face)
+		}
+		if !lookup[key{v.X - 1, v.Y, v.Z}] {
+			plane := voxelPlane{voxelNegX, v.X, v.Color}
 			face := voxelFace{v.Y, v.Z, v.Y, v.Z}
 			planeFaces[plane] = append(planeFaces[plane], face)
 		}
@@ -78,9 +68,19 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 			face := voxelFace{v.X, v.Z, v.X, v.Z}
 			planeFaces[plane] = append(planeFaces[plane], face)
 		}
-		if !lookup[key{v.X - 1, v.Y, v.Z}] {
-			plane := voxelPlane{voxelNegX, v.X, v.Color}
-			face := voxelFace{v.Y, v.Z, v.Y, v.Z}
+		if !lookup[key{v.X, v.Y - 1, v.Z}] {
+			plane := voxelPlane{voxelNegY, v.Y, v.Color}
+			face := voxelFace{v.X, v.Z, v.X, v.Z}
+			planeFaces[plane] = append(planeFaces[plane], face)
+		}
+		if !lookup[key{v.X, v.Y, v.Z + 1}] {
+			plane := voxelPlane{voxelPosZ, v.Z, v.Color}
+			face := voxelFace{v.X, v.Y, v.X, v.Y}
+			planeFaces[plane] = append(planeFaces[plane], face)
+		}
+		if !lookup[key{v.X, v.Y, v.Z - 1}] {
+			plane := voxelPlane{voxelNegZ, v.Z, v.Color}
+			face := voxelFace{v.X, v.Y, v.X, v.Y}
 			planeFaces[plane] = append(planeFaces[plane], face)
 		}
 	}
