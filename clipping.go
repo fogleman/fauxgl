@@ -74,6 +74,7 @@ func ClipTriangle(t *Triangle) []*Triangle {
 }
 
 func ClipLine(l *Line) *Line {
+	// TODO: interpolate vertex attributes when clipped
 	w1 := l.V1.Output
 	w2 := l.V2.Output
 	for _, plane := range clipPlanes {
