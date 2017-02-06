@@ -29,18 +29,36 @@ var (
 	background = HexColor("#FFF8E3")           // background color
 )
 
+func timed(name string) func() {
+	if len(name) > 0 {
+		fmt.Printf("%s... ", name)
+	}
+	start := time.Now()
+	return func() {
+		fmt.Println(time.Since(start))
+	}
+}
+
 func main() {
+	var done func()
+
 	// load a mesh
+	done = timed("loading mesh")
 	mesh, err := LoadOBJ("examples/dragon.obj")
 	if err != nil {
 		panic(err)
 	}
+	done()
 
 	// fit mesh in a bi-unit cube centered at the origin
+	done = timed("transforming mesh")
 	mesh.BiUnitCube()
+	done()
 
 	// smooth the normals
+	done = timed("smoothing normals")
 	mesh.SmoothNormalsThreshold(Radians(30))
+	done()
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
@@ -53,14 +71,18 @@ func main() {
 	// render
 	context.ClearColorBuffer()
 	context.Shader = NewDefaultShader(matrix, light, eye, color)
-	start := time.Now()
+	done = timed("rendering mesh")
 	context.DrawMesh(mesh)
-	fmt.Println(time.Since(start))
+	done()
 
 	// downsample image for antialiasing
+	done = timed("downsampling image")
 	image := context.Image()
 	image = resize.Resize(width, height, image, resize.Bilinear)
+	done()
 
 	// save image
+	done = timed("writing output")
 	SavePNG("out.png", image)
+	done()
 }
