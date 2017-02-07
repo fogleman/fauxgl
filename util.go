@@ -17,6 +17,14 @@ func Degrees(radians float64) float64 {
 	return radians * 180 / math.Pi
 }
 
+func LatLngToXYZ(lat, lng float64) Vector {
+	lat, lng = Radians(lat), Radians(lng)
+	x := math.Cos(lat) * math.Cos(lng)
+	y := math.Cos(lat) * math.Sin(lng)
+	z := math.Sin(lat)
+	return Vector{x, y, z}
+}
+
 func LoadImage(path string) (image.Image, error) {
 	file, err := os.Open(path)
 	if err != nil {
