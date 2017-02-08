@@ -104,6 +104,18 @@ func LookAt(eye, center, up Vector) Matrix {
 	}
 }
 
+func LookAtDirection(forward, up Vector) Matrix {
+	z := forward.Normalize()
+	x := up.Cross(z).Normalize()
+	y := z.Cross(x)
+	return Matrix{
+		x.X, x.Y, x.Z, 0,
+		y.X, y.Y, y.Z, 0,
+		z.X, z.Y, z.Z, 0,
+		0, 0, 0, 1,
+	}
+}
+
 func Screen(w, h int) Matrix {
 	w2 := float64(w) / 2
 	h2 := float64(h) / 2

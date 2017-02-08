@@ -51,3 +51,7 @@ func (t *Triangle) Transform(matrix Matrix) {
 	t.V2.Normal = matrix.MulDirection(t.V2.Normal)
 	t.V3.Normal = matrix.MulDirection(t.V3.Normal)
 }
+
+func (t *Triangle) ReverseWinding() {
+	t.V1, t.V2, t.V3 = t.V3, t.V2, t.V1
+}

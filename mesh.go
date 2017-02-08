@@ -141,6 +141,12 @@ func (m *Mesh) Transform(matrix Matrix) {
 	m.dirty()
 }
 
+func (m *Mesh) ReverseWinding() {
+	for _, t := range m.Triangles {
+		t.ReverseWinding()
+	}
+}
+
 func (m *Mesh) SaveSTL(path string) error {
 	return SaveSTL(path, m)
 }
