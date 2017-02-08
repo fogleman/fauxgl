@@ -51,14 +51,16 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
+	context.ClearColorBufferWith(Black)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	context.ClearColorBufferWith(Black)
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = color
+	context.Shader = shader
 	start := time.Now()
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
@@ -66,7 +68,10 @@ func main() {
 	mesh, _ = LoadSTL("examples/sphere.stl")
 	mesh.SmoothNormals()
 	mesh.Transform(Scale(V(2.5, 2.5, 2.5)))
-	context.Shader = NewDefaultShader(matrix, light, eye, HexColor("FFFF9D").Alpha(0.65))
+	shader = NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = HexColor("FFFF9D").Alpha(0.65)
+	shader.SpecularPower = 0
+	context.Shader = shader
 	context.DrawMesh(mesh)
 	context.Wireframe = true
 	context.DepthBias = -0.00001

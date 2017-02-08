@@ -71,7 +71,7 @@ func main() {
 	shader := NewPhongShader(matrix, light, eye)
 	shader.AmbientColor = Gray(0.4)
 	shader.DiffuseColor = Gray(0.9)
-	shader.SpecularColor = Gray(0)
+	shader.SpecularPower = 0
 	context.Shader = shader
 	done = timed("rendering triangles")
 	context.DrawTriangles(mesh.Triangles)

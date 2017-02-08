@@ -7,42 +7,6 @@ type Shader interface {
 	Fragment(Vertex) Color
 }
 
-type DefaultShader struct {
-	Matrix  Matrix
-	Light   Vector
-	Camera  Vector
-	Color   Color
-	Texture Texture
-}
-
-func NewDefaultShader(matrix Matrix, light, camera Vector, color Color) *DefaultShader {
-	return &DefaultShader{matrix, light, camera, color, nil}
-}
-
-func (shader *DefaultShader) Vertex(v Vertex) Vertex {
-	v.Output = shader.Matrix.MulPositionW(v.Position)
-	return v
-}
-
-func (shader *DefaultShader) Fragment(v Vertex) Color {
-	color := shader.Color
-	if color == Discard {
-		color = v.Color
-	}
-	if shader.Texture != nil {
-		color = shader.Texture.BilinearSample(v.Texture.X, v.Texture.Y)
-	}
-	diffuse := math.Max(v.Normal.Dot(shader.Light), 0)
-	specular := 0.0
-	if diffuse > 0 {
-		camera := shader.Camera.Sub(v.Position).Normalize()
-		specular = math.Max(camera.Dot(shader.Light.Negate().Reflect(v.Normal)), 0)
-		specular = math.Pow(specular, 50)
-	}
-	light := Clamp(diffuse+specular, 0.1, 1)
-	return color.MulScalar(light).Alpha(color.A)
-}
-
 // SolidColorShader renders with a single, solid color.
 type SolidColorShader struct {
 	Matrix Matrix
@@ -119,7 +83,7 @@ func (shader *PhongShader) Fragment(v Vertex) Color {
 	}
 	diffuse := math.Max(v.Normal.Dot(shader.LightDirection), 0)
 	light = light.Add(shader.DiffuseColor.MulScalar(diffuse))
-	if diffuse > 0 {
+	if diffuse > 0 && shader.SpecularPower > 0 {
 		camera := shader.CameraPosition.Sub(v.Position).Normalize()
 		reflected := shader.LightDirection.Negate().Reflect(v.Normal)
 		specular := math.Max(camera.Dot(reflected), 0)

@@ -43,15 +43,15 @@ func main() {
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
-	// h := 0.6
-	// w := h * float64(width) / float64(height)
-	// matrix := LookAt(eye, center, up).Orthographic(-w, w, -h, h, -10, 10)
 	light := V(0, 1, 1).Normalize()
-	color := HexColor("#B9121B")
 
 	// render
 	start := time.Now()
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = HexColor("#B9121B")
+	shader.SpecularColor = Gray(0.25)
+	shader.SpecularPower = 64
+	context.Shader = shader
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 

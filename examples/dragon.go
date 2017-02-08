@@ -62,15 +62,16 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
-	context.ClearColor = background
+	context.ClearColorBufferWith(background)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	context.ClearColorBuffer()
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = color
+	context.Shader = shader
 	done = timed("rendering mesh")
 	context.DrawMesh(mesh)
 	done()

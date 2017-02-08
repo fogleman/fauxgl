@@ -51,7 +51,7 @@ func main() {
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	shader := NewDefaultShader(matrix, light, eye, color)
+	shader := NewTextureShader(matrix, texture)
 	shader.Texture = texture
 	start := time.Now()
 	context.Shader = shader

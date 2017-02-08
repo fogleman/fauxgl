@@ -33,7 +33,9 @@ func main() {
 	light := V(-2, 0, 1).Normalize()
 	color := Color{0.5, 1, 0.65, 1}
 
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = color
+	context.Shader = shader
 	context.DrawMesh(mesh)
 
 	SavePNG("out.png", context.Image())

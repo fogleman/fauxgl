@@ -38,18 +38,20 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
+	context.ClearColorBufferWith(Black)
 
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 	light := V(0.75, 0.25, 1).Normalize()
-	color := White
 
 	// render
-	context.ClearColor = Black
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
-	context.ClearColorBuffer()
-	context.ClearDepthBuffer()
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = HexColor("FFD34E")
+	shader.DiffuseColor = Gray(0.9)
+	shader.SpecularColor = Gray(0.25)
+	shader.SpecularPower = 100
+	context.Shader = shader
 	start := time.Now()
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))

@@ -48,11 +48,9 @@ func main() {
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// render
-	context.ClearColor = White
-	shader := NewDefaultShader(matrix, light, eye, Black)
+	shader := NewPhongShader(matrix, light, eye)
 	shader.Texture = texture
 	context.Shader = shader
-	context.ClearColorBuffer()
 	start := time.Now()
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
