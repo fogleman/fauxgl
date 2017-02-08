@@ -95,7 +95,56 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 		triangles = append(triangles, triangulateVoxelFaces(plane, faces)...)
 	}
 
+	// remove t-junctions in mesh
+	if false {
+		vertexes := make(map[Vector]bool)
+		for _, t := range triangles {
+			vertexes[t.V1.Position] = true
+			vertexes[t.V2.Position] = true
+			vertexes[t.V3.Position] = true
+		}
+		for v := range vertexes {
+			for _, t := range triangles {
+				if pointOnSegment(v, t.V1.Position, t.V2.Position) {
+					u := NewTriangle(t.V1, t.V2, t.V3)
+					u.V1.Position = v
+					t.V2.Position = v
+					triangles = append(triangles, u)
+				}
+				if pointOnSegment(v, t.V2.Position, t.V3.Position) {
+					u := NewTriangle(t.V1, t.V2, t.V3)
+					u.V2.Position = v
+					t.V3.Position = v
+					triangles = append(triangles, u)
+				}
+				if pointOnSegment(v, t.V3.Position, t.V1.Position) {
+					u := NewTriangle(t.V1, t.V2, t.V3)
+					u.V3.Position = v
+					t.V1.Position = v
+					triangles = append(triangles, u)
+				}
+			}
+		}
+	}
+
 	return NewMesh(triangles, lines)
+}
+
+func pointOnSegment(p, v0, v1 Vector) bool {
+	// v0 to v1 must be an axis aligned segment
+	if v0.X == v1.X && v0.X == p.X && v0.Y == v1.Y && v0.Y == p.Y {
+		z0, z1 := v0.Z, v1.Z
+		return (p.Z > z0 && p.Z < z1) || (p.Z < z0 && p.Z > z1)
+	}
+	if v0.X == v1.X && v0.X == p.X && v0.Z == v1.Z && v0.Z == p.Z {
+		y0, y1 := v0.Y, v1.Y
+		return (p.Y > y0 && p.Y < y1) || (p.Y < y0 && p.Y > y1)
+	}
+	if v0.Y == v1.Y && v0.Y == p.Y && v0.Z == v1.Z && v0.Z == p.Z {
+		x0, x1 := v0.X, v1.X
+		return (p.X > x0 && p.X < x1) || (p.X < x0 && p.X > x1)
+	}
+	return false
 }
 
 func combineVoxelFaces(faces []voxelFace) []voxelFace {
