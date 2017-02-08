@@ -1,5 +1,10 @@
 package fauxgl
 
+import (
+	"math"
+	"sort"
+)
+
 type Voxel struct {
 	X, Y, Z int
 	Color   Color
@@ -37,6 +42,11 @@ type voxelPlane struct {
 type voxelFace struct {
 	I0, J0 int
 	I1, J1 int
+}
+
+type voxelPolygon struct {
+	Points []Vector
+	Color  Color
 }
 
 func NewVoxelMesh(voxels []Voxel) *Mesh {
@@ -85,66 +95,108 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 		}
 	}
 
-	var triangles []*Triangle
-	var lines []*Line
-
-	// find large rectangles, triangulate and outline
+	// find large rectangular regions
 	for plane, faces := range planeFaces {
-		faces = combineVoxelFaces(faces)
-		lines = append(lines, outlineVoxelFaces(plane, faces)...)
-		triangles = append(triangles, triangulateVoxelFaces(plane, faces)...)
+		planeFaces[plane] = combineVoxelFaces(faces)
 	}
 
-	// remove t-junctions in mesh
-	if false {
-		vertexes := make(map[Vector]bool)
-		for _, t := range triangles {
-			vertexes[t.V1.Position] = true
-			vertexes[t.V2.Position] = true
-			vertexes[t.V3.Position] = true
-		}
-		for v := range vertexes {
-			for _, t := range triangles {
-				if pointOnSegment(v, t.V1.Position, t.V2.Position) {
-					u := NewTriangle(t.V1, t.V2, t.V3)
-					u.V1.Position = v
-					t.V2.Position = v
-					triangles = append(triangles, u)
-				}
-				if pointOnSegment(v, t.V2.Position, t.V3.Position) {
-					u := NewTriangle(t.V1, t.V2, t.V3)
-					u.V2.Position = v
-					t.V3.Position = v
-					triangles = append(triangles, u)
-				}
-				if pointOnSegment(v, t.V3.Position, t.V1.Position) {
-					u := NewTriangle(t.V1, t.V2, t.V3)
-					u.V3.Position = v
-					t.V1.Position = v
-					triangles = append(triangles, u)
-				}
-			}
-		}
+	// generate wireframe outlines
+	var lines []*Line
+	for plane, faces := range planeFaces {
+		lines = append(lines, outlineVoxelFaces(plane, faces)...)
+	}
+
+	// create polygonal faces
+	polygons := voxelPolygons(planeFaces)
+
+	// segment faces at t-junctions (optional)
+	// polygons = segmentVoxelPolygons(polygons)
+
+	// triangulate polygons
+	var triangles []*Triangle
+	for _, p := range polygons {
+		triangles = append(triangles, triangulateVoxelPolygon(p)...)
 	}
 
 	return NewMesh(triangles, lines)
 }
 
-func pointOnSegment(p, v0, v1 Vector) bool {
-	// v0 to v1 must be an axis aligned segment
-	if v0.X == v1.X && v0.X == p.X && v0.Y == v1.Y && v0.Y == p.Y {
-		z0, z1 := v0.Z, v1.Z
-		return (p.Z > z0 && p.Z < z1) || (p.Z < z0 && p.Z > z1)
+func triangulateVoxelPolygon(polygon voxelPolygon) []*Triangle {
+	p := polygon.Points
+	if len(p) < 3 {
+		return nil
+	} else if len(p) == 3 {
+		t := NewTriangleForPoints(p[0], p[1], p[2])
+		t.V1.Color = polygon.Color
+		t.V2.Color = polygon.Color
+		t.V3.Color = polygon.Color
+		return []*Triangle{t}
+	} else {
+		var bestI, bestJ int
+		var bestAspect float64
+		for i := 0; i < len(p); i++ {
+			for j := i + 1; j < len(p); j++ {
+				points1, points2 := voxelPolygonSplit(p, i, j)
+				aspect1 := voxelPolygonAspect(points1)
+				aspect2 := voxelPolygonAspect(points2)
+				if len(points1) < 3 || len(points2) < 3 {
+					continue
+				}
+				if aspect1 == math.MaxFloat64 || aspect2 == math.MaxFloat64 {
+					continue
+				}
+				aspect := math.Min(aspect1, aspect2)
+				if bestAspect == 0 || aspect < bestAspect {
+					bestI = i
+					bestJ = j
+					bestAspect = aspect
+				}
+			}
+		}
+		points1, points2 := voxelPolygonSplit(p, bestI, bestJ)
+		p1 := voxelPolygon{points1, polygon.Color}
+		p2 := voxelPolygon{points2, polygon.Color}
+		t1 := triangulateVoxelPolygon(p1)
+		t2 := triangulateVoxelPolygon(p2)
+		return append(t1, t2...)
 	}
-	if v0.X == v1.X && v0.X == p.X && v0.Z == v1.Z && v0.Z == p.Z {
-		y0, y1 := v0.Y, v1.Y
-		return (p.Y > y0 && p.Y < y1) || (p.Y < y0 && p.Y > y1)
+}
+
+func voxelPolygonSplit(points []Vector, i, j int) ([]Vector, []Vector) {
+	points1 := points[i : j+1]
+	var points2 []Vector
+	k := j
+	points2 = append(points2, points[k])
+	for k != i {
+		k = (k + 1) % len(points)
+		points2 = append(points2, points[k])
 	}
-	if v0.Y == v1.Y && v0.Y == p.Y && v0.Z == v1.Z && v0.Z == p.Z {
-		x0, x1 := v0.X, v1.X
-		return (p.X > x0 && p.X < x1) || (p.X < x0 && p.X > x1)
+	return points1, points2
+}
+
+func voxelPolygonAspect(points []Vector) float64 {
+	min := points[0]
+	max := points[0]
+	for _, point := range points {
+		min = min.Min(point)
+		max = max.Max(point)
 	}
-	return false
+	d := max.Sub(min)
+	var di, dj float64
+	if d.X == 0 {
+		di, dj = d.Y, d.Z
+	} else if d.Y == 0 {
+		di, dj = d.X, d.Z
+	} else if d.Z == 0 {
+		di, dj = d.X, d.Y
+	}
+	if di < dj {
+		di, dj = dj, di
+	}
+	if dj == 0 {
+		return math.MaxFloat64
+	}
+	return di / dj
 }
 
 func combineVoxelFaces(faces []voxelFace) []voxelFace {
@@ -239,47 +291,128 @@ func combineVoxelFaces(faces []voxelFace) []voxelFace {
 	return result
 }
 
-func triangulateVoxelFaces(plane voxelPlane, faces []voxelFace) []*Triangle {
-	triangles := make([]*Triangle, len(faces)*2)
-	k := float64(plane.Position) + float64(plane.Normal.Sign)*0.5
-	for i, face := range faces {
-		i0 := float64(face.I0) - 0.5
-		j0 := float64(face.J0) - 0.5
-		i1 := float64(face.I1) + 0.5
-		j1 := float64(face.J1) + 0.5
-		var p1, p2, p3, p4 Vector
-		switch plane.Normal.Axis {
-		case voxelX:
-			p1 = Vector{k, i0, j0}
-			p2 = Vector{k, i1, j0}
-			p3 = Vector{k, i1, j1}
-			p4 = Vector{k, i0, j1}
-		case voxelY:
-			p1 = Vector{i0, k, j1}
-			p2 = Vector{i1, k, j1}
-			p3 = Vector{i1, k, j0}
-			p4 = Vector{i0, k, j0}
-		case voxelZ:
-			p1 = Vector{i0, j0, k}
-			p2 = Vector{i1, j0, k}
-			p3 = Vector{i1, j1, k}
-			p4 = Vector{i0, j1, k}
+func distinctAndSorted(a []float64) []float64 {
+	sort.Float64s(a)
+	b := a[:0]
+	for i, x := range a {
+		if i == 0 || x != a[i-1] {
+			b = append(b, x)
 		}
-		if plane.Normal.Sign < 0 {
-			p1, p2, p3, p4 = p4, p3, p2, p1
-		}
-		t1 := NewTriangleForPoints(p1, p2, p3)
-		t2 := NewTriangleForPoints(p1, p3, p4)
-		t1.V1.Color = plane.Color
-		t1.V2.Color = plane.Color
-		t1.V3.Color = plane.Color
-		t2.V1.Color = plane.Color
-		t2.V2.Color = plane.Color
-		t2.V3.Color = plane.Color
-		triangles[i*2+0] = t1
-		triangles[i*2+1] = t2
 	}
-	return triangles
+	return b
+}
+
+func segmentVoxelPolygons(polygons []voxelPolygon) []voxelPolygon {
+	lookup := make(map[Vector][]float64)
+	any := math.MaxFloat64
+	for _, p := range polygons {
+		for _, v := range p.Points {
+			kx := Vector{any, v.Y, v.Z}
+			ky := Vector{v.X, any, v.Z}
+			kz := Vector{v.X, v.Y, any}
+			lookup[kx] = append(lookup[kx], v.X)
+			lookup[ky] = append(lookup[ky], v.Y)
+			lookup[kz] = append(lookup[kz], v.Z)
+		}
+	}
+	for k, v := range lookup {
+		lookup[k] = distinctAndSorted(v)
+	}
+	result := make([]voxelPolygon, len(polygons))
+	for idx, p := range polygons {
+		var newPoints []Vector
+		for i, p1 := range p.Points {
+			newPoints = append(newPoints, p1)
+			p2 := p.Points[(i+1)%len(p.Points)]
+			if p1.X == p2.X && p1.Y == p2.Y {
+				zs := lookup[Vector{p1.X, p1.Y, any}]
+				if p2.Z > p1.Z {
+					for j := 0; j < len(zs); j++ {
+						if zs[j] > p1.Z && zs[j] < p2.Z {
+							newPoints = append(newPoints, Vector{p1.X, p1.Y, zs[j]})
+						}
+					}
+				} else {
+					for j := len(zs) - 1; j >= 0; j-- {
+						if zs[j] > p2.Z && zs[j] < p1.Z {
+							newPoints = append(newPoints, Vector{p1.X, p1.Y, zs[j]})
+						}
+					}
+				}
+			} else if p1.X == p2.X && p1.Z == p2.Z {
+				ys := lookup[Vector{p1.X, any, p1.Z}]
+				if p2.Y > p1.Y {
+					for j := 0; j < len(ys); j++ {
+						if ys[j] > p1.Y && ys[j] < p2.Y {
+							newPoints = append(newPoints, Vector{p1.X, ys[j], p1.Z})
+						}
+					}
+				} else {
+					for j := len(ys) - 1; j >= 0; j-- {
+						if ys[j] > p2.Y && ys[j] < p1.Y {
+							newPoints = append(newPoints, Vector{p1.X, ys[j], p1.Z})
+						}
+					}
+				}
+			} else if p1.Y == p2.Y && p1.Z == p2.Z {
+				xs := lookup[Vector{any, p1.Y, p1.Z}]
+				if p2.X > p1.X {
+					for j := 0; j < len(xs); j++ {
+						if xs[j] > p1.X && xs[j] < p2.X {
+							newPoints = append(newPoints, Vector{xs[j], p1.Y, p1.Z})
+						}
+					}
+				} else {
+					for j := len(xs) - 1; j >= 0; j-- {
+						if xs[j] > p2.X && xs[j] < p1.X {
+							newPoints = append(newPoints, Vector{xs[j], p1.Y, p1.Z})
+						}
+					}
+				}
+			}
+		}
+		p.Points = newPoints
+		result[idx] = p
+	}
+	return result
+}
+
+func voxelPolygons(planeFaces map[voxelPlane][]voxelFace) []voxelPolygon {
+	var result []voxelPolygon
+	for plane, faces := range planeFaces {
+		k := float64(plane.Position) + float64(plane.Normal.Sign)*0.5
+		for _, face := range faces {
+			i0 := float64(face.I0) - 0.5
+			j0 := float64(face.J0) - 0.5
+			i1 := float64(face.I1) + 0.5
+			j1 := float64(face.J1) + 0.5
+			var p1, p2, p3, p4 Vector
+			switch plane.Normal.Axis {
+			case voxelX:
+				p1 = Vector{k, i0, j0}
+				p2 = Vector{k, i1, j0}
+				p3 = Vector{k, i1, j1}
+				p4 = Vector{k, i0, j1}
+			case voxelY:
+				p1 = Vector{i0, k, j1}
+				p2 = Vector{i1, k, j1}
+				p3 = Vector{i1, k, j0}
+				p4 = Vector{i0, k, j0}
+			case voxelZ:
+				p1 = Vector{i0, j0, k}
+				p2 = Vector{i1, j0, k}
+				p3 = Vector{i1, j1, k}
+				p4 = Vector{i0, j1, k}
+			}
+			if plane.Normal.Sign < 0 {
+				p1, p2, p3, p4 = p4, p3, p2, p1
+			}
+			points := []Vector{p1, p2, p3, p4}
+			polygon := voxelPolygon{points, plane.Color}
+			result = append(result, polygon)
+		}
+	}
+	return result
 }
 
 func outlineVoxelFaces(plane voxelPlane, faces []voxelFace) []*Line {
