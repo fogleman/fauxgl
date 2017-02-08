@@ -54,4 +54,7 @@ func (t *Triangle) Transform(matrix Matrix) {
 
 func (t *Triangle) ReverseWinding() {
 	t.V1, t.V2, t.V3 = t.V3, t.V2, t.V1
+	t.V1.Normal = t.V1.Normal.Negate()
+	t.V2.Normal = t.V2.Normal.Negate()
+	t.V3.Normal = t.V3.Normal.Negate()
 }

@@ -51,7 +51,7 @@ func NewContext(width, height int) *Context {
 	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
 	dc.DepthBuffer = make([]float64, width*height)
 	dc.ClearColor = Transparent
-	dc.Shader = nil // TODO: default
+	dc.Shader = NewSolidColorShader(Identity(), Color{1, 0, 1, 1})
 	dc.ReadDepth = true
 	dc.WriteDepth = true
 	dc.WriteColor = true
