@@ -18,6 +18,10 @@ type Color struct {
 	R, G, B, A float64
 }
 
+func Gray(x float64) Color {
+	return Color{x, x, x, 1}
+}
+
 func MakeColor(c color.Color) Color {
 	r, g, b, a := c.RGBA()
 	const d = 0xffff

@@ -61,18 +61,18 @@ func main() {
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
+	context.ClearColorBufferWith(HexColor("323"))
 
 	// create transformation matrix and light direction
-	// aspect := float64(width) / float64(height)
-	// matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 	const s = 1.5
 	matrix := LookAt(eye, center, up).Orthographic(-s, s, -s, s, -20, 20)
 
 	// render
-	context.ClearColorBufferWith(HexColor("323"))
-	ambient := Color{0.4, 0.4, 0.4, 1}
-	diffuse := Color{0.9, 0.9, 0.9, 1}
-	context.Shader = NewDiffuseShader(matrix, light, Discard, ambient, diffuse)
+	shader := NewPhongShader(matrix, light, eye)
+	shader.AmbientColor = Gray(0.4)
+	shader.DiffuseColor = Gray(0.9)
+	shader.SpecularColor = Gray(0)
+	context.Shader = shader
 	done = timed("rendering triangles")
 	context.DrawTriangles(mesh.Triangles)
 	done()
