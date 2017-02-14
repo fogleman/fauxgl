@@ -23,11 +23,6 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - anti-aliasing (via supersampling)
 - voxel rendering
 
-### TODO
-
-- more built-in, configurable shaders
-- more built-in shapes
-
 ### Performance
 
 FauxGL uses all of your CPU cores. But none of your GPU.
@@ -91,8 +86,12 @@ func main() {
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
+	// use builtin phong shader
+	shader := NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = color
+	context.Shader = shader
+
 	// render
-	context.Shader = NewDefaultShader(matrix, light, eye, color)
 	context.DrawMesh(mesh)
 
 	// downsample image for antialiasing
