@@ -99,7 +99,7 @@ func (dc *Context) ClearDepthBuffer() {
 	dc.ClearDepthBufferWith(math.MaxFloat64)
 }
 
-func edge(a, b, c Vector) float64 {
+func edgeFunc(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
@@ -114,9 +114,9 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 
 	// forward differencing variables
 	p := Vector{float64(x0) + 0.5, float64(y0) + 0.5, 0}
-	w00 := edge(s1, s2, p)
-	w01 := edge(s2, s0, p)
-	w02 := edge(s0, s1, p)
+	w00 := edgeFunc(s1, s2, p)
+	w01 := edgeFunc(s2, s0, p)
+	w02 := edgeFunc(s0, s1, p)
 	a01 := s1.Y - s0.Y
 	b01 := s0.X - s1.X
 	a12 := s2.Y - s1.Y
@@ -125,7 +125,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 	b20 := s2.X - s0.X
 
 	// reciprocals
-	ra := 1 / edge(s0, s1, s2)
+	ra := 1 / edgeFunc(s0, s1, s2)
 	r0 := 1 / v0.Output.W
 	r1 := 1 / v1.Output.W
 	r2 := 1 / v2.Output.W

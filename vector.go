@@ -29,6 +29,32 @@ func (a Vector) VectorW() VectorW {
 	return VectorW{a.X, a.Y, a.Z, 1}
 }
 
+func (a Vector) Less(b Vector) bool {
+	if a.X != b.X {
+		return a.X < b.X
+	}
+	if a.Y != b.Y {
+		return a.Y < b.Y
+	}
+	return a.Z < b.Z
+}
+
+func (a Vector) NearEqual(b Vector, eps float64) bool {
+	dx := a.X - b.X
+	if dx < -eps || dx > eps {
+		return false
+	}
+	dy := a.Y - b.Y
+	if dy < -eps || dy > eps {
+		return false
+	}
+	dz := a.Z - b.Z
+	if dz < -eps || dz > eps {
+		return false
+	}
+	return true
+}
+
 func (a Vector) Length() float64 {
 	return math.Sqrt(a.X*a.X + a.Y*a.Y + a.Z*a.Z)
 }
