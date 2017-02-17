@@ -267,17 +267,19 @@ func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 	ndc2 := v2.Output.DivScalar(v2.Output.W).Vector()
 
 	// back face culling
-	if dc.Cull != CullNone {
-		a := (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y) - (ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y)
-		if dc.Cull == CullFront {
-			a = -a
-		}
-		if dc.FrontFace == FaceCW {
-			a = -a
-		}
-		if a <= 0 {
-			return
-		}
+	a := (ndc1.X-ndc0.X)*(ndc2.Y-ndc0.Y) - (ndc2.X-ndc0.X)*(ndc1.Y-ndc0.Y)
+	if a < 0 {
+		v0, v1, v2 = v2, v1, v0
+		ndc0, ndc1, ndc2 = ndc2, ndc1, ndc0
+	}
+	if dc.Cull == CullFront {
+		a = -a
+	}
+	if dc.FrontFace == FaceCW {
+		a = -a
+	}
+	if dc.Cull != CullNone && a <= 0 {
+		return
 	}
 
 	// screen coordinates
