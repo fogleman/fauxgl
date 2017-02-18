@@ -1,11 +1,13 @@
 package fauxgl
 
 type Polygon struct {
+	Normal    Vector
 	Exterior  Ring
 	Interiors []Ring
 }
 
 func NewPolygonForTriangles(triangles []*Triangle) *Polygon {
+	normal := triangles[0].Normal()
 	edgeCounts := make(map[Edge]int)
 	for _, t := range triangles {
 		edgeCounts[EdgeKey(t.V1.Position, t.V2.Position)]++
@@ -39,7 +41,25 @@ func NewPolygonForTriangles(triangles []*Triangle) *Polygon {
 			interiors = append(interiors, r)
 		}
 	}
-	return &Polygon{exterior, interiors}
+	return &Polygon{normal, exterior, interiors}
+}
+
+func (polygon *Polygon) To2D() *Polygon {
+	up := Vector{0, 0, 1}
+	m := RotateTo(polygon.Normal, up)
+	var exterior Ring
+	for _, p := range polygon.Exterior {
+		exterior = append(exterior, m.MulPosition(p))
+	}
+	var interiors []Ring
+	for _, r := range polygon.Interiors {
+		var interior Ring
+		for _, p := range r {
+			interior = append(interior, m.MulPosition(p))
+		}
+		interiors = append(interiors, interior)
+	}
+	return &Polygon{up, exterior, interiors}
 }
 
 func edgesToRings(edges []Edge) []Ring {

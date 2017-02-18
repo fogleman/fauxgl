@@ -48,13 +48,11 @@ func MeshEdges(mesh *Mesh) {
 		}
 		polygon := NewPolygonForTriangles(group)
 		r := polygon.Exterior
-		// for _, r := range polygon.Interiors {
 		for i := range r {
 			p1 := r.At(i)
 			p2 := r.At(i + 1)
 			mesh.Lines = append(mesh.Lines, NewLineForPoints(p1, p2))
 		}
-		// }
 		groups = append(groups, group)
 		c := Color{rand.Float64(), rand.Float64(), rand.Float64(), 1}
 		for _, t := range group {

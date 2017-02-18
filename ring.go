@@ -45,14 +45,3 @@ func (r Ring) Simplify() Ring {
 	}
 	return result
 }
-
-func (r Ring) IsClockwise(normal Vector) bool {
-	var sum float64
-	for i := range r {
-		p1 := r.At(i - 1)
-		p2 := r.At(i)
-		p3 := r.At(i + 1)
-		sum += p2.Sub(p1).Cross(p3.Sub(p1)).Normalize().Dot(normal)
-	}
-	return sum < 0
-}
