@@ -20,6 +20,7 @@ func MeshEdges(mesh *Mesh) {
 	// group neighbors with same normal
 	seen := make(map[*Triangle]bool)
 	var groups [][]*Triangle
+	var triangles []*Triangle
 	for _, t := range mesh.Triangles {
 		if seen[t] {
 			continue
@@ -47,6 +48,8 @@ func MeshEdges(mesh *Mesh) {
 			}
 		}
 		polygon := NewPolygonForTriangles(group)
+		simplified := polygon.Triangulate()
+		triangles = append(triangles, simplified...)
 		r := polygon.Exterior
 		for i := range r {
 			p1 := r.At(i)
@@ -55,12 +58,13 @@ func MeshEdges(mesh *Mesh) {
 		}
 		groups = append(groups, group)
 		c := Color{rand.Float64(), rand.Float64(), rand.Float64(), 1}
-		for _, t := range group {
+		for _, t := range simplified {
 			t.V1.Color = c
 			t.V2.Color = c
 			t.V3.Color = c
 		}
 	}
 
-	fmt.Println(len(mesh.Triangles), len(groups))
+	fmt.Println(len(mesh.Triangles), len(triangles), len(groups))
+	mesh.Triangles = triangles
 }

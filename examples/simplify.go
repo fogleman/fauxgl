@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	scale  = 2    // optional supersampling
+	scale  = 8    // optional supersampling
 	width  = 2048 // output width in pixels
 	height = 2048 // output height in pixels
 	fovy   = 10   // vertical field of view in degrees
@@ -57,7 +57,7 @@ func main() {
 	context.Shader = NewSolidColorShader(matrix, Black)
 	context.Wireframe = true
 	context.DepthBias = -1e-4
-	context.LineWidth = scale / 2.0
+	context.LineWidth = scale * 1
 	context.DrawTriangles(mesh.Triangles)
 	context.LineWidth = scale * 3
 	context.DrawLines(mesh.Lines)

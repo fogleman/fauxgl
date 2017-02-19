@@ -1,5 +1,7 @@
 package fauxgl
 
+import "github.com/fogleman/triangulate"
+
 type Polygon struct {
 	Normal    Vector
 	Exterior  Ring
@@ -44,22 +46,42 @@ func NewPolygonForTriangles(triangles []*Triangle) *Polygon {
 	return &Polygon{normal, exterior, interiors}
 }
 
-func (polygon *Polygon) To2D() *Polygon {
-	up := Vector{0, 0, 1}
-	m := RotateTo(polygon.Normal, up)
-	var exterior Ring
-	for _, p := range polygon.Exterior {
-		exterior = append(exterior, m.MulPosition(p))
+// func (polygon *Polygon) To2D() *Polygon {
+// 	up := Vector{0, 0, 1}
+// 	m := RotateTo(polygon.Normal, up)
+// 	var exterior Ring
+// 	for _, p := range polygon.Exterior {
+// 		exterior = append(exterior, m.MulPosition(p))
+// 	}
+// 	var interiors []Ring
+// 	for _, r := range polygon.Interiors {
+// 		var interior Ring
+// 		for _, p := range r {
+// 			interior = append(interior, m.MulPosition(p))
+// 		}
+// 		interiors = append(interiors, interior)
+// 	}
+// 	return &Polygon{up, exterior, interiors}
+// }
+
+func (polygon *Polygon) Triangulate() []*Triangle {
+	var result []*Triangle
+	m := RotateTo(polygon.Normal, Vector{0, 0, 1})
+	p := triangulate.Polygon{}
+	lookup := make(map[Vector]Vector)
+	for _, v3 := range polygon.Exterior {
+		v2 := m.MulPosition(v3)
+		v2.Z = 0
+		lookup[v2] = v3
+		p.Exterior = append(p.Exterior, triangulate.Point{v2.X, v2.Y})
 	}
-	var interiors []Ring
-	for _, r := range polygon.Interiors {
-		var interior Ring
-		for _, p := range r {
-			interior = append(interior, m.MulPosition(p))
-		}
-		interiors = append(interiors, interior)
+	for _, t := range p.Triangulate() {
+		a := lookup[Vector{t.A.X, t.A.Y, 0}]
+		b := lookup[Vector{t.B.X, t.B.Y, 0}]
+		c := lookup[Vector{t.C.X, t.C.Y, 0}]
+		result = append(result, NewTriangleForPoints(a, b, c))
 	}
-	return &Polygon{up, exterior, interiors}
+	return result
 }
 
 func edgesToRings(edges []Edge) []Ring {

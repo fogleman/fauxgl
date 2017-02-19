@@ -6,10 +6,7 @@ type Ring []Vector
 
 func (r Ring) At(i int) Vector {
 	n := len(r)
-	if i < 0 {
-		i += n
-	}
-	return r[i%n]
+	return r[(i+n)%n]
 }
 
 func (r Ring) Length() float64 {
