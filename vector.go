@@ -37,6 +37,18 @@ func (a Vector) Distance(b Vector) float64 {
 	return a.Sub(b).Length()
 }
 
+func (a Vector) LengthSquared() float64 {
+	return a.X*a.X + a.Y*a.Y + a.Z*a.Z
+}
+
+func (a Vector) DistanceSquared(b Vector) float64 {
+	return a.Sub(b).LengthSquared()
+}
+
+func (a Vector) Lerp(b Vector, t float64) Vector {
+	return a.Add(b.Sub(a).MulScalar(t))
+}
+
 func (a Vector) Dot(b Vector) float64 {
 	return a.X*b.X + a.Y*b.Y + a.Z*b.Z
 }
@@ -137,6 +149,21 @@ func (a Vector) Perpendicular() Vector {
 		return Vector{0, 1, 0}
 	}
 	return Vector{-a.Y, a.X, 0}.Normalize()
+}
+
+func (p Vector) SegmentDistance(v Vector, w Vector) float64 {
+	l2 := v.DistanceSquared(w)
+	if l2 == 0 {
+		return p.Distance(v)
+	}
+	t := p.Sub(v).Dot(w.Sub(v)) / l2
+	if t < 0 {
+		return p.Distance(v)
+	}
+	if t > 1 {
+		return p.Distance(w)
+	}
+	return v.Add(w.Sub(v).MulScalar(t)).Distance(p)
 }
 
 type VectorW struct {
