@@ -70,6 +70,10 @@ func (a Color) Alpha(alpha float64) Color {
 	return Color{a.R, a.G, a.B, alpha}
 }
 
+func (a Color) Lerp(b Color, t float64) Color {
+	return a.Add(b.Sub(a).MulScalar(t))
+}
+
 func (a Color) Add(b Color) Color {
 	return Color{a.R + b.R, a.G + b.G, a.B + b.B, a.A + b.A}
 }
