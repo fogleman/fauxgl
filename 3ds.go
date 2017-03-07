@@ -56,14 +56,14 @@ func Load3DS(filename string) (*Mesh, error) {
 			if err != nil {
 				return nil, err
 			}
-		case 0x4160:
-			matrix, err := readLocalAxis(file)
-			if err != nil {
-				return nil, err
-			}
-			for i, v := range vertices {
-				vertices[i] = matrix.MulPosition(v)
-			}
+		// case 0x4160:
+		// 	matrix, err := readLocalAxis(file)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	for i, v := range vertices {
+		// 		vertices[i] = matrix.MulPosition(v)
+		// 	}
 		default:
 			file.Seek(int64(header.Length-6), 1)
 		}
