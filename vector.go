@@ -49,6 +49,10 @@ func (a Vector) Lerp(b Vector, t float64) Vector {
 	return a.Add(b.Sub(a).MulScalar(t))
 }
 
+func (a Vector) LerpDistance(b Vector, d float64) Vector {
+	return a.Add(b.Sub(a).Normalize().MulScalar(d))
+}
+
 func (a Vector) Dot(b Vector) float64 {
 	return a.X*b.X + a.Y*b.Y + a.Z*b.Z
 }
