@@ -58,3 +58,9 @@ func (t *Triangle) ReverseWinding() {
 	t.V2.Normal = t.V2.Normal.Negate()
 	t.V3.Normal = t.V3.Normal.Negate()
 }
+
+func (t *Triangle) SetColor(c Color) {
+	t.V1.Color = c
+	t.V2.Color = c
+	t.V3.Color = c
+}

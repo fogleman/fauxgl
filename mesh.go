@@ -50,6 +50,12 @@ func (a *Mesh) Add(b *Mesh) {
 	a.dirty()
 }
 
+func (a *Mesh) SetColor(c Color) {
+	for _, t := range a.Triangles {
+		t.SetColor(c)
+	}
+}
+
 func smoothNormalsThreshold(normal Vector, normals []Vector, threshold float64) Vector {
 	result := Vector{}
 	for _, x := range normals {
