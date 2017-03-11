@@ -98,22 +98,23 @@ func (m *Mesh) SmoothNormals() {
 	}
 }
 
-func (m *Mesh) UnitCube() {
+func (m *Mesh) UnitCube() Matrix {
 	const r = 0.5
-	m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
+	return m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 }
 
-func (m *Mesh) BiUnitCube() {
+func (m *Mesh) BiUnitCube() Matrix {
 	const r = 1
-	m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
+	return m.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 }
 
-func (m *Mesh) MoveTo(position, anchor Vector) {
+func (m *Mesh) MoveTo(position, anchor Vector) Matrix {
 	matrix := Translate(position.Sub(m.BoundingBox().Anchor(anchor)))
 	m.Transform(matrix)
+	return matrix
 }
 
-func (m *Mesh) FitInside(box Box, anchor Vector) {
+func (m *Mesh) FitInside(box Box, anchor Vector) Matrix {
 	scale := box.Size().Div(m.BoundingBox().Size()).MinComponent()
 	extra := box.Size().Sub(m.BoundingBox().Size().MulScalar(scale))
 	matrix := Identity()
@@ -121,6 +122,7 @@ func (m *Mesh) FitInside(box Box, anchor Vector) {
 	matrix = matrix.Scale(Vector{scale, scale, scale})
 	matrix = matrix.Translate(box.Min.Add(extra.Mul(anchor)))
 	m.Transform(matrix)
+	return matrix
 }
 
 func (m *Mesh) BoundingBox() Box {
