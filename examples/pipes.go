@@ -101,7 +101,7 @@ func (g *Grid) Set(c Cell) {
 
 func MakeSegment(p0, p1 Vector, r float64, c Color) *Mesh {
 	p := p0.Add(p1).MulScalar(0.5)
-	h := p0.Distance(p1) * 2
+	h := p0.Distance(p1)
 	up := p1.Sub(p0).Normalize()
 	mesh := NewCylinder(15, false)
 	mesh.Transform(Orient(p, V(r, r, h), up, 0))
@@ -145,7 +145,7 @@ func (pipe *Pipe) Update(grid *Grid) {
 	p0 := pipe.Cell.Vector()
 	pipe.Cell = c
 	p1 := pipe.Cell.Vector()
-	pipe.Mesh.Add(MakeSegment(p0, p1, 0.25, pipe.Color))
+	pipe.Mesh.Add(MakeSegment(p0, p1, 0.125, pipe.Color))
 	grid.Set(pipe.Cell)
 	pipe.Direction = d
 }

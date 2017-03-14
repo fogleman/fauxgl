@@ -60,7 +60,7 @@ func RotateTo(a, b Vector) Matrix {
 
 func Orient(position, size, up Vector, rotation float64) Matrix {
 	m := Rotate(Vector{0, 0, 1}, rotation)
-	m = m.Scale(size.MulScalar(0.5))
+	m = m.Scale(size)
 	m = m.RotateTo(Vector{0, 0, 1}, up)
 	m = m.Translate(position)
 	return m
