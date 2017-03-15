@@ -77,15 +77,16 @@ func loadSTLA(file *os.File) (*Mesh, error) {
 }
 
 func loadSTLB(file *os.File) (*Mesh, error) {
+	r := bufio.NewReader(file)
 	header := STLHeader{}
-	if err := binary.Read(file, binary.LittleEndian, &header); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
 		return nil, err
 	}
 	count := int(header.Count)
 	triangles := make([]*Triangle, count)
 	for i := 0; i < count; i++ {
 		d := STLTriangle{}
-		if err := binary.Read(file, binary.LittleEndian, &d); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &d); err != nil {
 			return nil, err
 		}
 		t := Triangle{}
