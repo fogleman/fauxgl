@@ -104,9 +104,10 @@ func SaveSTL(path string, mesh *Mesh) error {
 		return err
 	}
 	defer file.Close()
+	w := bufio.NewWriter(file)
 	header := STLHeader{}
 	header.Count = uint32(len(mesh.Triangles))
-	if err := binary.Write(file, binary.LittleEndian, &header); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, &header); err != nil {
 		return err
 	}
 	for _, triangle := range mesh.Triangles {
@@ -124,9 +125,10 @@ func SaveSTL(path string, mesh *Mesh) error {
 		d.V3[0] = float32(triangle.V3.Position.X)
 		d.V3[1] = float32(triangle.V3.Position.Y)
 		d.V3[2] = float32(triangle.V3.Position.Z)
-		if err := binary.Write(file, binary.LittleEndian, &d); err != nil {
+		if err := binary.Write(w, binary.LittleEndian, &d); err != nil {
 			return err
 		}
 	}
+	w.Flush()
 	return nil
 }
