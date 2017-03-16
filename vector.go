@@ -133,6 +133,17 @@ func (a Vector) Ceil() Vector {
 	return Vector{math.Ceil(a.X), math.Ceil(a.Y), math.Ceil(a.Z)}
 }
 
+func (a Vector) Round() Vector {
+	return a.RoundPlaces(0)
+}
+
+func (a Vector) RoundPlaces(n int) Vector {
+	x := RoundPlaces(a.X, n)
+	y := RoundPlaces(a.Y, n)
+	z := RoundPlaces(a.Z, n)
+	return Vector{x, y, z}
+}
+
 func (a Vector) MinComponent() float64 {
 	return math.Min(math.Min(a.X, a.Y), a.Z)
 }

@@ -87,3 +87,8 @@ func Round(a float64) int {
 		return int(math.Floor(a + 0.5))
 	}
 }
+
+func RoundPlaces(a float64, places int) float64 {
+	shift := math.Pow(10, float64(places))
+	return float64(Round(a*shift)) / shift
+}
