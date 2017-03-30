@@ -127,6 +127,19 @@ func Screen(w, h int) Matrix {
 	}
 }
 
+func Viewport(x, y, w, h float64) Matrix {
+	l := x
+	b := y
+	r := x + w
+	t := y + h
+	return Matrix{
+		(r - l) / 2, 0, 0, (r + l) / 2,
+		0, (t - b) / 2, 0, (t + b) / 2,
+		0, 0, 0.5, 0.5,
+		0, 0, 0, 1,
+	}
+}
+
 func (m Matrix) Translate(v Vector) Matrix {
 	return Translate(v).Mul(m)
 }
@@ -157,6 +170,10 @@ func (m Matrix) Perspective(fovy, aspect, near, far float64) Matrix {
 
 func (m Matrix) LookAt(eye, center, up Vector) Matrix {
 	return LookAt(eye, center, up).Mul(m)
+}
+
+func (m Matrix) Viewport(x, y, w, h float64) Matrix {
+	return Viewport(x, y, w, h).Mul(m)
 }
 
 func (a Matrix) MulScalar(b float64) Matrix {
