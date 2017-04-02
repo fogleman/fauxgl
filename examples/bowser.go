@@ -53,7 +53,8 @@ func main() {
 	shader.SpecularPower = 100
 	context.Shader = shader
 	start := time.Now()
-	context.DrawMesh(mesh)
+	info := context.DrawMesh(mesh)
+	fmt.Println(info)
 	fmt.Println(time.Since(start))
 
 	// save image

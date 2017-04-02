@@ -64,3 +64,22 @@ func (t *Triangle) SetColor(c Color) {
 	t.V2.Color = c
 	t.V3.Color = c
 }
+
+// func (t *Triangle) RandomPoint() Vector {
+// 	v1 := t.V1.Position
+// 	v2 := t.V2.Position.Sub(v1)
+// 	v3 := t.V3.Position.Sub(v1)
+// 	for {
+// 		a := rand.Float64()
+// 		b := rand.Float64()
+// 		if a+b <= 1 {
+// 			return v1.Add(v2.MulScalar(a)).Add(v3.MulScalar(b))
+// 		}
+// 	}
+// }
+
+// func (t *Triangle) Area() float64 {
+// 	e1 := t.V2.Position.Sub(t.V1.Position)
+// 	e2 := t.V3.Position.Sub(t.V1.Position)
+// 	return e1.Cross(e2).Length() / 2
+// }

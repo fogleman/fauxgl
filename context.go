@@ -24,6 +24,18 @@ const (
 	CullBack
 )
 
+type RasterizeInfo struct {
+	TotalPixels   uint64
+	UpdatedPixels uint64
+}
+
+func (info RasterizeInfo) Add(other RasterizeInfo) RasterizeInfo {
+	return RasterizeInfo{
+		info.TotalPixels + other.TotalPixels,
+		info.UpdatedPixels + other.UpdatedPixels,
+	}
+}
+
 type Context struct {
 	Width        int
 	Height       int
@@ -103,7 +115,9 @@ func edge(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
-func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
+func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
+	var info RasterizeInfo
+
 	// integer bounding box
 	min := s0.Min(s1.Min(s2)).Floor()
 	max := s0.Max(s1.Max(s2)).Ceil()
@@ -179,6 +193,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 				// TODO: could also be from fat lines going off screen
 				continue
 			}
+			info.TotalPixels++
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
 			bz := z + dc.DepthBias
 			if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
@@ -198,6 +213,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 			lock.Lock()
 			// check depth buffer again
 			if bz <= dc.DepthBuffer[i] || !dc.ReadDepth {
+				info.UpdatedPixels++
 				if dc.WriteDepth {
 					// update depth buffer
 					dc.DepthBuffer[i] = z
@@ -227,9 +243,11 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
 		w01 += b20
 		w02 += b01
 	}
+
+	return info
 }
 
-func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) {
+func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) RasterizeInfo {
 	n := s1.Sub(s0).Perpendicular().MulScalar(dc.LineWidth / 2)
 	s0 = s0.Add(s0.Sub(s1).Normalize().MulScalar(dc.LineWidth / 2))
 	s1 = s1.Add(s1.Sub(s0).Normalize().MulScalar(dc.LineWidth / 2))
@@ -237,17 +255,19 @@ func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) {
 	s01 := s0.Sub(n)
 	s10 := s1.Add(n)
 	s11 := s1.Sub(n)
-	dc.rasterize(v1, v0, v0, s11, s01, s00)
-	dc.rasterize(v1, v1, v0, s10, s11, s00)
+	info1 := dc.rasterize(v1, v0, v0, s11, s01, s00)
+	info2 := dc.rasterize(v1, v1, v0, s10, s11, s00)
+	return info1.Add(info2)
 }
 
-func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) {
-	dc.line(v0, v1, s0, s1)
-	dc.line(v1, v2, s1, s2)
-	dc.line(v2, v0, s2, s0)
+func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
+	info1 := dc.line(v0, v1, s0, s1)
+	info2 := dc.line(v1, v2, s1, s2)
+	info3 := dc.line(v2, v0, s2, s0)
+	return info1.Add(info2).Add(info3)
 }
 
-func (dc *Context) drawClippedLine(v0, v1 Vertex) {
+func (dc *Context) drawClippedLine(v0, v1 Vertex) RasterizeInfo {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
@@ -257,10 +277,10 @@ func (dc *Context) drawClippedLine(v0, v1 Vertex) {
 	s1 := dc.screenMatrix.MulPosition(ndc1)
 
 	// rasterize
-	dc.line(v0, v1, s0, s1)
+	return dc.line(v0, v1, s0, s1)
 }
 
-func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
+func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) RasterizeInfo {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
@@ -279,7 +299,7 @@ func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 		a = -a
 	}
 	if dc.Cull != CullNone && a <= 0 {
-		return
+		return RasterizeInfo{}
 	}
 
 	// screen coordinates
@@ -289,13 +309,13 @@ func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) {
 
 	// rasterize
 	if dc.Wireframe {
-		dc.wireframe(v0, v1, v2, s0, s1, s2)
+		return dc.wireframe(v0, v1, v2, s0, s1, s2)
 	} else {
-		dc.rasterize(v0, v1, v2, s0, s1, s2)
+		return dc.rasterize(v0, v1, v2, s0, s1, s2)
 	}
 }
 
-func (dc *Context) DrawLine(t *Line) {
+func (dc *Context) DrawLine(t *Line) RasterizeInfo {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
 	v2 := dc.Shader.Vertex(t.V2)
@@ -304,15 +324,17 @@ func (dc *Context) DrawLine(t *Line) {
 		// clip to viewing volume
 		line := ClipLine(NewLine(v1, v2))
 		if line != nil {
-			dc.drawClippedLine(line.V1, line.V2)
+			return dc.drawClippedLine(line.V1, line.V2)
+		} else {
+			return RasterizeInfo{}
 		}
 	} else {
 		// no need to clip
-		dc.drawClippedLine(v1, v2)
+		return dc.drawClippedLine(v1, v2)
 	}
 }
 
-func (dc *Context) DrawTriangle(t *Triangle) {
+func (dc *Context) DrawTriangle(t *Triangle) RasterizeInfo {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
 	v2 := dc.Shader.Vertex(t.V2)
@@ -321,52 +343,64 @@ func (dc *Context) DrawTriangle(t *Triangle) {
 	if v1.Outside() || v2.Outside() || v3.Outside() {
 		// clip to viewing volume
 		triangles := ClipTriangle(NewTriangle(v1, v2, v3))
+		var result RasterizeInfo
 		for _, t := range triangles {
-			dc.drawClippedTriangle(t.V1, t.V2, t.V3)
+			info := dc.drawClippedTriangle(t.V1, t.V2, t.V3)
+			result = result.Add(info)
 		}
+		return result
 	} else {
 		// no need to clip
-		dc.drawClippedTriangle(v1, v2, v3)
+		return dc.drawClippedTriangle(v1, v2, v3)
 	}
 }
 
-func (dc *Context) DrawLines(lines []*Line) {
+func (dc *Context) DrawLines(lines []*Line) RasterizeInfo {
 	wn := runtime.NumCPU()
-	done := make(chan bool, wn)
+	ch := make(chan RasterizeInfo, wn)
 	for wi := 0; wi < wn; wi++ {
 		go func(wi int) {
+			var result RasterizeInfo
 			for i, l := range lines {
 				if i%wn == wi {
-					dc.DrawLine(l)
+					info := dc.DrawLine(l)
+					result = result.Add(info)
 				}
 			}
-			done <- true
+			ch <- result
 		}(wi)
 	}
+	var result RasterizeInfo
 	for wi := 0; wi < wn; wi++ {
-		<-done
+		result = result.Add(<-ch)
 	}
+	return result
 }
 
-func (dc *Context) DrawTriangles(triangles []*Triangle) {
+func (dc *Context) DrawTriangles(triangles []*Triangle) RasterizeInfo {
 	wn := runtime.NumCPU()
-	done := make(chan bool, wn)
+	ch := make(chan RasterizeInfo, wn)
 	for wi := 0; wi < wn; wi++ {
 		go func(wi int) {
+			var result RasterizeInfo
 			for i, t := range triangles {
 				if i%wn == wi {
-					dc.DrawTriangle(t)
+					info := dc.DrawTriangle(t)
+					result = result.Add(info)
 				}
 			}
-			done <- true
+			ch <- result
 		}(wi)
 	}
+	var result RasterizeInfo
 	for wi := 0; wi < wn; wi++ {
-		<-done
+		result = result.Add(<-ch)
 	}
+	return result
 }
 
-func (dc *Context) DrawMesh(mesh *Mesh) {
-	dc.DrawTriangles(mesh.Triangles)
-	dc.DrawLines(mesh.Lines)
+func (dc *Context) DrawMesh(mesh *Mesh) RasterizeInfo {
+	info1 := dc.DrawTriangles(mesh.Triangles)
+	info2 := dc.DrawLines(mesh.Lines)
+	return info1.Add(info2)
 }
