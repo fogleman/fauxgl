@@ -2,7 +2,7 @@
 
 3D software rendering in pure Go. No OpenGL, no C extensions, no nothin'.
 
-![Dragon](http://i.imgur.com/jRXlxLP.png)
+![Dragon](http://i.imgur.com/M4G214O.png)
 
 ### About
 
@@ -12,7 +12,7 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 
 ### Features
 
-- STL, OBJ, PLY file formats
+- STL, OBJ, PLY, 3DS file formats
 - triangle rasterization
 - vertex and fragment "shaders"
 - view volume clipping
