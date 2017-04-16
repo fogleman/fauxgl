@@ -21,7 +21,10 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - face culling
 - alpha blending
 - textures
-- built-in shapes
+- triangle & line meshes
+- depth biasing
+- wireframe rendering
+- built-in shapes (plane, sphere, cube, cylinder, cone)
 - anti-aliasing (via supersampling)
 - voxel rendering
 
