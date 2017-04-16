@@ -2,6 +2,8 @@
 
 3D software rendering in pure Go. No OpenGL, no C extensions, no nothin'.
 
+<br>
+
 ![Dragon](http://i.imgur.com/uwehodr.png)
 
 ### About
