@@ -107,3 +107,5 @@ func main() {
 	SavePNG("out.png", image)
 }
 ```
+
+![Teapot](http://i.imgur.com/DaqbkLR.png)
