@@ -27,6 +27,7 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 - built-in shapes (plane, sphere, cube, cylinder, cone)
 - anti-aliasing (via supersampling)
 - voxel rendering
+- parallel processing
 
 ### Performance
 
@@ -34,14 +35,18 @@ FauxGL uses all of your CPU cores. But none of your GPU.
 
 Rendering the Stanford Dragon shown above (871306 triangles) at 1920x1080px takes about 150 milliseconds on my machine. With 4x4=16x supersampling, it takes about 950 milliseconds. This is the time to render a frame and does not include loading the mesh from disk.
 
-### Go Get It
+### Go Get
 
     go get -u github.com/fogleman/fauxgl
 
-### Go Run It
+### Go Run
 
     cd go/src/github.com/fogleman/fauxgl
     go run examples/hello.go
+
+### Go Doc
+
+https://godoc.org/github.com/fogleman/fauxgl
 
 ### Complete Example
 
