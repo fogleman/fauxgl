@@ -2,6 +2,8 @@ package fauxgl
 
 import (
 	"math"
+
+	"github.com/fogleman/simplify"
 )
 
 type Mesh struct {
@@ -153,6 +155,26 @@ func (m *Mesh) ReverseWinding() {
 	for _, t := range m.Triangles {
 		t.ReverseWinding()
 	}
+}
+
+func (m *Mesh) Simplify(factor float64) {
+	st := make([]*simplify.Triangle, len(m.Triangles))
+	for i, t := range m.Triangles {
+		v1 := simplify.Vector(t.V1.Position)
+		v2 := simplify.Vector(t.V2.Position)
+		v3 := simplify.Vector(t.V3.Position)
+		st[i] = simplify.NewTriangle(v1, v2, v3)
+	}
+	sm := simplify.NewMesh(st)
+	sm = sm.Simplify(factor)
+	m.Triangles = make([]*Triangle, len(sm.Triangles))
+	for i, t := range sm.Triangles {
+		v1 := Vector(t.V1)
+		v2 := Vector(t.V2)
+		v3 := Vector(t.V3)
+		m.Triangles[i] = NewTriangleForPoints(v1, v2, v3)
+	}
+	m.dirty()
 }
 
 func (m *Mesh) SaveSTL(path string) error {
