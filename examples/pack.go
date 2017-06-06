@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	. "github.com/fogleman/fauxgl"
@@ -40,7 +41,7 @@ func main() {
 	var done func()
 
 	done = timed("loading mesh")
-	mesh, err := LoadSTL("examples/boat.stl")
+	mesh, err := LoadSTL(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
@@ -50,54 +51,59 @@ func main() {
 
 	done = timed("transforming mesh")
 	mesh.BiUnitCube()
+	mesh.Transform(Rotate(up, Radians(180)))
 	done()
+
+	const N = 10
 
 	done = timed("creating bvh")
-	boxes := NewTreeForMesh(mesh)
+	node := NewTreeForMesh(mesh, N)
 	done()
 
-	fmt.Println(len(boxes))
+	for i := 0; i <= N; i++ {
+		boxes := node.Leaves(i)
 
-	// create a rendering context
-	context := NewContext(width*scale, height*scale)
-	context.ClearColorBufferWith(background)
+		// create a rendering context
+		context := NewContext(width*scale, height*scale)
+		context.ClearColorBufferWith(background)
 
-	// create transformation matrix and light direction
-	aspect := float64(width) / float64(height)
-	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+		// create transformation matrix and light direction
+		aspect := float64(width) / float64(height)
+		matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
-	// render
-	shader := NewPhongShader(matrix, light, eye)
-	shader.ObjectColor = color
-	context.Shader = shader
-	done = timed("rendering mesh")
-	context.DrawMesh(mesh)
-	done()
+		// render
+		shader := NewPhongShader(matrix, light, eye)
+		shader.ObjectColor = color
+		context.Shader = shader
+		done = timed("rendering mesh")
+		context.DrawMesh(mesh)
+		done()
 
-	for _, box := range boxes {
-		m := Translate(Vector{0.5, 0.5, 0.5})
-		m = m.Scale(box.Size())
-		m = m.Translate(box.Min)
-		cube := NewCube()
-		cube.Transform(m)
-		context.DrawMesh(cube)
+		for _, box := range boxes {
+			m := Translate(Vector{0.5, 0.5, 0.5})
+			m = m.Scale(box.Size())
+			m = m.Translate(box.Min)
+			cube := NewCube()
+			cube.Transform(m)
+			context.DrawMesh(cube)
+		}
+
+		// context.Shader = NewSolidColorShader(matrix, Black)
+		// context.LineWidth = 8
+		// // context.DepthBias = -1e-4
+		// for _, box := range boxes {
+		// 	context.DrawLines(box.Outline())
+		// }
+
+		// downsample image for antialiasing
+		done = timed("downsampling image")
+		image := context.Image()
+		image = resize.Resize(width, height, image, resize.Bilinear)
+		done()
+
+		// save image
+		done = timed("writing output")
+		SavePNG(fmt.Sprintf("out%03d.png", i), image)
+		done()
 	}
-
-	// context.Shader = NewSolidColorShader(matrix, Black)
-	// context.LineWidth = 8
-	// // context.DepthBias = -1e-4
-	// for _, box := range boxes {
-	// 	context.DrawLines(box.Outline())
-	// }
-
-	// downsample image for antialiasing
-	done = timed("downsampling image")
-	image := context.Image()
-	image = resize.Resize(width, height, image, resize.Bilinear)
-	done()
-
-	// save image
-	done = timed("writing output")
-	SavePNG("out.png", image)
-	done()
 }

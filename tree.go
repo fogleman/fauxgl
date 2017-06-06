@@ -2,14 +2,14 @@ package fauxgl
 
 import "fmt"
 
-func NewTreeForMesh(mesh *Mesh) []Box {
+func NewTreeForMesh(mesh *Mesh, depth int) *Node {
 	boxes := make([]Box, len(mesh.Triangles))
 	for i, t := range mesh.Triangles {
 		boxes[i] = t.BoundingBox()
 	}
 	node := NewNode(boxes)
-	node.Split(0)
-	return node.Leaves()
+	node.Split(depth)
+	return node
 }
 
 type Node struct {
@@ -26,16 +26,16 @@ func NewNode(boxes []Box) *Node {
 	return &Node{box, boxes, AxisNone, 0, nil, nil}
 }
 
-func (node *Node) Leaves() []Box {
+func (node *Node) Leaves(maxDepth int) []Box {
 	var result []Box
-	if node.Left == nil && node.Right == nil {
+	if maxDepth == 0 || (node.Left == nil && node.Right == nil) {
 		return []Box{node.Box}
 	}
 	if node.Left != nil {
-		result = append(result, node.Left.Leaves()...)
+		result = append(result, node.Left.Leaves(maxDepth-1)...)
 	}
 	if node.Right != nil {
-		result = append(result, node.Right.Leaves()...)
+		result = append(result, node.Right.Leaves(maxDepth-1)...)
 	}
 	return result
 }
@@ -78,7 +78,7 @@ func (node *Node) Partition(axis Axis, point float64, side bool) (left, right []
 }
 
 func (node *Node) Split(depth int) {
-	if depth >= 8 {
+	if depth == 0 {
 		return
 	}
 	box := node.Box
@@ -125,8 +125,8 @@ func (node *Node) Split(depth int) {
 	node.Point = bestPoint
 	node.Left = NewNode(l)
 	node.Right = NewNode(r)
-	node.Left.Split(depth + 1)
-	node.Right.Split(depth + 1)
+	node.Left.Split(depth - 1)
+	node.Right.Split(depth - 1)
 	node.Boxes = nil // only needed at leaf nodes
 	left := node.Left.Box
 	right := node.Right.Box
