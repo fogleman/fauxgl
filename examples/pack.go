@@ -62,6 +62,15 @@ func main() {
 
 	for i := 0; i <= N; i++ {
 		boxes := node.Leaves(i)
+		fmt.Println(i, len(boxes))
+
+		// for _, a := range boxes {
+		// 	for _, b := range boxes {
+		// 		if a != b && a.ContainsBox(b) {
+		// 			fmt.Println("!!!", a, b)
+		// 		}
+		// 	}
+		// }
 
 		// create a rendering context
 		context := NewContext(width*scale, height*scale)
@@ -75,18 +84,22 @@ func main() {
 		shader := NewPhongShader(matrix, light, eye)
 		shader.ObjectColor = color
 		context.Shader = shader
-		done = timed("rendering mesh")
-		context.DrawMesh(mesh)
-		done()
+		// done = timed("rendering mesh")
+		// context.DrawMesh(mesh)
+		// done()
 
+		cubes := NewEmptyMesh()
 		for _, box := range boxes {
+			// fmt.Println(box.Volume(), box.Size())
 			m := Translate(Vector{0.5, 0.5, 0.5})
 			m = m.Scale(box.Size())
 			m = m.Translate(box.Min)
 			cube := NewCube()
 			cube.Transform(m)
-			context.DrawMesh(cube)
+			cubes.Add(cube)
 		}
+		context.DrawMesh(cubes)
+		// cubes.SaveSTL(fmt.Sprintf("out%03d.stl", i))
 
 		// context.Shader = NewSolidColorShader(matrix, Black)
 		// context.LineWidth = 8
@@ -96,14 +109,14 @@ func main() {
 		// }
 
 		// downsample image for antialiasing
-		done = timed("downsampling image")
+		// done = timed("downsampling image")
 		image := context.Image()
 		image = resize.Resize(width, height, image, resize.Bilinear)
-		done()
+		// done()
 
 		// save image
-		done = timed("writing output")
-		SavePNG(fmt.Sprintf("out%03d.png", i), image)
-		done()
+		// done = timed("writing output")
+		SavePNG(fmt.Sprintf("out%03da.png", i), image)
+		// done()
 	}
 }

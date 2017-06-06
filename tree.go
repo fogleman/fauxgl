@@ -1,7 +1,5 @@
 package fauxgl
 
-import "fmt"
-
 func NewTreeForMesh(mesh *Mesh, depth int) *Node {
 	boxes := make([]Box, len(mesh.Triangles))
 	for i, t := range mesh.Triangles {
@@ -77,38 +75,29 @@ func (node *Node) Partition(axis Axis, point float64, side bool) (left, right []
 			right = append(right, box)
 		}
 	}
-	return
-	var outer Box
-	var major, minor []Box
+	// return
 	if side {
-		outer = BoxForBoxes(left)
-		major = left
-		minor = right
-	} else {
-		outer = BoxForBoxes(right)
-		major = right
-		minor = left
-	}
-	done := false
-	for !done {
-		done = true
-		a := minor[:0]
-		for _, box := range minor {
+		outer := BoxForBoxes(left)
+		a := right[:0]
+		for _, box := range right {
 			if outer.ContainsBox(box) {
-				major = append(major, box)
-				done = false
+				left = append(left, box)
 			} else {
 				a = append(a, box)
 			}
 		}
-		minor = a
-	}
-	if side {
-		left = major
-		right = minor
+		right = a
 	} else {
-		right = major
-		left = minor
+		outer := BoxForBoxes(right)
+		a := left[:0]
+		for _, box := range left {
+			if outer.ContainsBox(box) {
+				right = append(right, box)
+			} else {
+				a = append(a, box)
+			}
+		}
+		left = a
 	}
 	return
 }
@@ -118,7 +107,7 @@ func (node *Node) Split(depth int) {
 		return
 	}
 	box := node.Box
-	best := box.Volume() //* 0.9
+	best := box.Volume()
 	bestAxis := AxisNone
 	bestPoint := 0.0
 	bestSide := false
@@ -164,9 +153,4 @@ func (node *Node) Split(depth int) {
 	node.Left.Split(depth - 1)
 	node.Right.Split(depth - 1)
 	node.Boxes = nil // only needed at leaf nodes
-	left := node.Left.Box
-	right := node.Right.Box
-	before := box.Volume()
-	after := left.Volume() + right.Volume() - left.Intersection(right).Volume()
-	fmt.Println(depth, before, after, after/before)
 }
