@@ -54,7 +54,7 @@ func main() {
 	mesh.Transform(Rotate(up, Radians(180)))
 	done()
 
-	const N = 10
+	const N = 5
 
 	done = timed("creating bvh")
 	node := NewTreeForMesh(mesh, N)
@@ -63,14 +63,6 @@ func main() {
 	for i := 0; i <= N; i++ {
 		boxes := node.Leaves(i)
 		fmt.Println(i, len(boxes))
-
-		// for _, a := range boxes {
-		// 	for _, b := range boxes {
-		// 		if a != b && a.ContainsBox(b) {
-		// 			fmt.Println("!!!", a, b)
-		// 		}
-		// 	}
-		// }
 
 		// create a rendering context
 		context := NewContext(width*scale, height*scale)
@@ -97,16 +89,15 @@ func main() {
 			cube := NewCube()
 			cube.Transform(m)
 			cubes.Add(cube)
+			cubes.Add(box.Outline())
 		}
-		context.DrawMesh(cubes)
-		// cubes.SaveSTL(fmt.Sprintf("out%03d.stl", i))
+		context.DrawTriangles(cubes.Triangles)
 
 		// context.Shader = NewSolidColorShader(matrix, Black)
 		// context.LineWidth = 8
-		// // context.DepthBias = -1e-4
-		// for _, box := range boxes {
-		// 	context.DrawLines(box.Outline())
-		// }
+		// context.Wireframe = true
+		// context.DepthBias = 0
+		// context.DrawLines(cubes.Lines)
 
 		// downsample image for antialiasing
 		// done = timed("downsampling image")
@@ -116,7 +107,9 @@ func main() {
 
 		// save image
 		// done = timed("writing output")
-		SavePNG(fmt.Sprintf("out%03da.png", i), image)
+		SavePNG(fmt.Sprintf("out%03d.png", i), image)
 		// done()
+
+		// cubes.SaveSTL(fmt.Sprintf("out%03d.stl", i))
 	}
 }
