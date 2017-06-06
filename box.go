@@ -76,6 +76,10 @@ func (a Box) Extend(b Box) Box {
 	return Box{a.Min.Min(b.Min), a.Max.Max(b.Max)}
 }
 
+func (a Box) Offset(x float64) Box {
+	return Box{a.Min.SubScalar(x), a.Max.AddScalar(x)}
+}
+
 func (a Box) Contains(b Vector) bool {
 	return a.Min.X <= b.X && a.Max.X >= b.X &&
 		a.Min.Y <= b.Y && a.Max.Y >= b.Y &&
@@ -101,6 +105,10 @@ func (a Box) Intersection(b Box) Box {
 	max := a.Max.Min(b.Max)
 	min, max = min.Min(max), min.Max(max)
 	return Box{min, max}
+}
+
+func (a Box) Transform(m Matrix) Box {
+	return m.MulBox(a)
 }
 
 func (a Box) Partition(axis Axis, point float64) (left, right bool) {

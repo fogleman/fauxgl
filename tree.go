@@ -18,8 +18,33 @@ type Node struct {
 }
 
 func NewNode(boxes []Box) *Node {
-	box := BoxForBoxes(boxes)
+	box := BoxForBoxes(boxes).Offset(2)
 	return &Node{box, boxes, nil, nil}
+}
+
+func (a *Node) Intersects(b *Node, m1, m2 Matrix) bool {
+	box1 := a.Box.Transform(m1)
+	box2 := b.Box.Transform(m2)
+	if !box1.Intersects(box2) {
+		return false
+	}
+	a1 := a.Left
+	a2 := a.Right
+	b1 := b.Left
+	b2 := b.Right
+	if a1 == nil && b1 == nil {
+		return true
+	} else if a1 == nil {
+		a1 = a
+		a2 = a
+	} else if b1 == nil {
+		b1 = b
+		b2 = b
+	}
+	return a1.Intersects(b1, m1, m2) ||
+		a1.Intersects(b2, m1, m2) ||
+		a2.Intersects(b1, m1, m2) ||
+		a2.Intersects(b2, m1, m2)
 }
 
 func (node *Node) Leaves(maxDepth int) []Box {
@@ -68,6 +93,10 @@ func (node *Node) Partition(axis Axis, point float64, side bool) (left, right []
 			right = append(right, box)
 		}
 	}
+	if !side {
+		left, right = right, left
+	}
+	return
 }
 
 func (node *Node) Split(depth int) {
