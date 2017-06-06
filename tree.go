@@ -41,21 +41,24 @@ func (node *Node) Leaves(maxDepth int) []Box {
 }
 
 func (node *Node) PartitionScore(axis Axis, point float64, side bool) float64 {
-	var left, right Box
-	for _, box := range node.Boxes {
-		l, r := box.Partition(axis, point)
-		if l && r {
-			if side {
-				left = left.Extend(box)
-			} else {
-				right = right.Extend(box)
-			}
-		} else if l {
-			left = left.Extend(box)
-		} else if r {
-			right = right.Extend(box)
-		}
-	}
+	// var left, right Box
+	// for _, box := range node.Boxes {
+	// 	l, r := box.Partition(axis, point)
+	// 	if l && r {
+	// 		if side {
+	// 			left = left.Extend(box)
+	// 		} else {
+	// 			right = right.Extend(box)
+	// 		}
+	// 	} else if l {
+	// 		left = left.Extend(box)
+	// 	} else if r {
+	// 		right = right.Extend(box)
+	// 	}
+	// }
+	l, r := node.Partition(axis, point, side)
+	left := BoxForBoxes(l)
+	right := BoxForBoxes(r)
 	return left.Volume() + right.Volume() - left.Intersection(right).Volume()
 }
 
@@ -73,6 +76,39 @@ func (node *Node) Partition(axis Axis, point float64, side bool) (left, right []
 		} else if r {
 			right = append(right, box)
 		}
+	}
+	return
+	var outer Box
+	var major, minor []Box
+	if side {
+		outer = BoxForBoxes(left)
+		major = left
+		minor = right
+	} else {
+		outer = BoxForBoxes(right)
+		major = right
+		minor = left
+	}
+	done := false
+	for !done {
+		done = true
+		a := minor[:0]
+		for _, box := range minor {
+			if outer.ContainsBox(box) {
+				major = append(major, box)
+				done = false
+			} else {
+				a = append(a, box)
+			}
+		}
+		minor = a
+	}
+	if side {
+		left = major
+		right = minor
+	} else {
+		right = major
+		left = minor
 	}
 	return
 }

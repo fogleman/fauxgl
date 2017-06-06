@@ -82,6 +82,12 @@ func (a Box) Contains(b Vector) bool {
 		a.Min.Z <= b.Z && a.Max.Z >= b.Z
 }
 
+func (a Box) ContainsBox(b Box) bool {
+	return a.Min.X <= b.Min.X && a.Max.X >= b.Max.X &&
+		a.Min.Y <= b.Min.Y && a.Max.Y >= b.Min.Y &&
+		a.Min.Z <= b.Min.Z && a.Max.Z >= b.Min.Z
+}
+
 func (a Box) Intersects(b Box) bool {
 	return !(a.Min.X > b.Max.X || a.Max.X < b.Min.X || a.Min.Y > b.Max.Y ||
 		a.Max.Y < b.Min.Y || a.Min.Z > b.Max.Z || a.Max.Z < b.Min.Z)
