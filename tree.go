@@ -13,15 +13,13 @@ func NewTreeForMesh(mesh *Mesh, depth int) *Node {
 type Node struct {
 	Box   Box
 	Boxes []Box
-	Axis  Axis
-	Point float64
 	Left  *Node
 	Right *Node
 }
 
 func NewNode(boxes []Box) *Node {
 	box := BoxForBoxes(boxes)
-	return &Node{box, boxes, AxisNone, 0, nil, nil}
+	return &Node{box, boxes, nil, nil}
 }
 
 func (node *Node) Leaves(maxDepth int) []Box {
@@ -39,67 +37,37 @@ func (node *Node) Leaves(maxDepth int) []Box {
 }
 
 func (node *Node) PartitionScore(axis Axis, point float64, side bool) float64 {
-	// var left, right Box
-	// for _, box := range node.Boxes {
-	// 	l, r := box.Partition(axis, point)
-	// 	if l && r {
-	// 		if side {
-	// 			left = left.Extend(box)
-	// 		} else {
-	// 			right = right.Extend(box)
-	// 		}
-	// 	} else if l {
-	// 		left = left.Extend(box)
-	// 	} else if r {
-	// 		right = right.Extend(box)
-	// 	}
-	// }
-	l, r := node.Partition(axis, point, side)
-	left := BoxForBoxes(l)
-	right := BoxForBoxes(r)
-	return left.Volume() + right.Volume() - left.Intersection(right).Volume()
+	var major Box
+	for _, box := range node.Boxes {
+		l, r := box.Partition(axis, point)
+		if (l && r) || (l && side) || (r && !side) {
+			major = major.Extend(box)
+		}
+	}
+	var minor Box
+	for _, box := range node.Boxes {
+		if !major.ContainsBox(box) {
+			minor = minor.Extend(box)
+		}
+	}
+	return major.Volume() + minor.Volume() - major.Intersection(minor).Volume()
 }
 
 func (node *Node) Partition(axis Axis, point float64, side bool) (left, right []Box) {
+	var major Box
 	for _, box := range node.Boxes {
 		l, r := box.Partition(axis, point)
-		if l && r {
-			if side {
-				left = append(left, box)
-			} else {
-				right = append(right, box)
-			}
-		} else if l {
+		if (l && r) || (l && side) || (r && !side) {
+			major = major.Extend(box)
+		}
+	}
+	for _, box := range node.Boxes {
+		if major.ContainsBox(box) {
 			left = append(left, box)
-		} else if r {
+		} else {
 			right = append(right, box)
 		}
 	}
-	// return
-	if side {
-		outer := BoxForBoxes(left)
-		a := right[:0]
-		for _, box := range right {
-			if outer.ContainsBox(box) {
-				left = append(left, box)
-			} else {
-				a = append(a, box)
-			}
-		}
-		right = a
-	} else {
-		outer := BoxForBoxes(right)
-		a := left[:0]
-		for _, box := range left {
-			if outer.ContainsBox(box) {
-				right = append(right, box)
-			} else {
-				a = append(a, box)
-			}
-		}
-		left = a
-	}
-	return
 }
 
 func (node *Node) Split(depth int) {
@@ -146,8 +114,6 @@ func (node *Node) Split(depth int) {
 		return
 	}
 	l, r := node.Partition(bestAxis, bestPoint, bestSide)
-	node.Axis = bestAxis
-	node.Point = bestPoint
 	node.Left = NewNode(l)
 	node.Right = NewNode(r)
 	node.Left.Split(depth - 1)
