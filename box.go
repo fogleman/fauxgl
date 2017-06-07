@@ -110,18 +110,3 @@ func (a Box) Intersection(b Box) Box {
 func (a Box) Transform(m Matrix) Box {
 	return m.MulBox(a)
 }
-
-func (a Box) Partition(axis Axis, point float64) (left, right bool) {
-	switch axis {
-	case AxisX:
-		left = a.Min.X <= point
-		right = a.Max.X >= point
-	case AxisY:
-		left = a.Min.Y <= point
-		right = a.Max.Y >= point
-	case AxisZ:
-		left = a.Min.Z <= point
-		right = a.Max.Z >= point
-	}
-	return
-}
