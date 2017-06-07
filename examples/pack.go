@@ -24,8 +24,8 @@ var (
 	center     = V(0, 0, 0)                  // view center position
 	up         = V(0, 0, 1)                  // up vector
 	light      = V(0.25, 0.5, 1).Normalize() // light direction
-	color      = HexColor("#468966")         // object color
-	background = HexColor("#FFF8E3")         // background color
+	color      = HexColor("#FEB41C")         // object color
+	background = HexColor("#24221F")         // background color
 )
 
 func timed(name string) func() {
@@ -53,6 +53,7 @@ func main() {
 	fmt.Println(len(mesh.Triangles))
 
 	done = timed("transforming mesh")
+	// mesh.Transform(Rotate(V(1, 0, 0), Radians(-90)))
 	mesh.BiUnitCube()
 	mesh.Transform(Scale(V(60, 60, 60)))
 	done()
@@ -99,6 +100,9 @@ func main() {
 
 	shader := NewPhongShader(matrix, light, eye)
 	shader.ObjectColor = color
+	shader.DiffuseColor = Gray(0.9)
+	shader.SpecularColor = Gray(0.25)
+	shader.SpecularPower = 100
 	context.Shader = shader
 	done = timed("rendering mesh")
 	context.DrawMesh(mesh)

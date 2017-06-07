@@ -7,7 +7,7 @@ import (
 
 const (
 	PackDetail = 5
-	PackNaive  = true
+	PackNaive  = false
 )
 
 type PackUndo struct {
@@ -125,7 +125,7 @@ func (m *PackModel) DoMove() interface{} {
 			}
 			offset := axis
 			offset = offset.MulScalar(float64(rand.Intn(2)*2 - 1))
-			offset = offset.MulScalar(rand.NormFloat64() * 3)
+			offset = offset.MulScalar(rand.NormFloat64() * 1)
 			item.Translation = item.Translation.Translate(offset)
 		}
 		if m.Valid(i) {
