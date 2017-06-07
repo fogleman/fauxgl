@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -38,6 +39,8 @@ func timed(name string) func() {
 }
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	var done func()
 
 	done = timed("loading mesh")
@@ -54,13 +57,18 @@ func main() {
 	mesh.Transform(Scale(V(60, 60, 60)))
 	done()
 
+	done = timed("building bvh tree")
 	model := NewPackModel()
-	model.Add(mesh, 4)
-	fmt.Println(model.Valid())
+	model.Add(mesh, 8)
+	done()
+
 	fmt.Println(model.Volume())
 	fmt.Println(model.Energy())
 
-	model = Anneal(model, 10, 0.001, 1000000).(*PackModel)
+	const m = 100
+	model = Anneal(model, 1e0*m, 1e-5*m, 3000000).(*PackModel)
+
+	fmt.Printf("volume = %g\n", model.Volume())
 
 	mesh = NewEmptyMesh()
 	// cubes := NewEmptyMesh()
@@ -103,5 +111,9 @@ func main() {
 
 	done = timed("writing output")
 	SavePNG("out.png", image)
+	done()
+
+	done = timed("writing mesh")
+	mesh.SaveSTL("out.stl")
 	done()
 }
