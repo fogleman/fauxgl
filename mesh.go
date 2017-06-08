@@ -116,6 +116,10 @@ func (m *Mesh) MoveTo(position, anchor Vector) Matrix {
 	return matrix
 }
 
+func (m *Mesh) Center() Matrix {
+	return m.MoveTo(Vector{}, Vector{0.5, 0.5, 0.5})
+}
+
 func (m *Mesh) FitInside(box Box, anchor Vector) Matrix {
 	scale := box.Size().Div(m.BoundingBox().Size()).MinComponent()
 	extra := box.Size().Sub(m.BoundingBox().Size().MulScalar(scale))

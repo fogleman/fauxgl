@@ -80,6 +80,10 @@ func (a Box) Offset(x float64) Box {
 	return Box{a.Min.SubScalar(x), a.Max.AddScalar(x)}
 }
 
+func (a Box) Translate(v Vector) Box {
+	return Box{a.Min.Add(v), a.Max.Add(v)}
+}
+
 func (a Box) Contains(b Vector) bool {
 	return a.Min.X <= b.X && a.Max.X >= b.X &&
 		a.Min.Y <= b.Y && a.Max.Y >= b.Y &&
