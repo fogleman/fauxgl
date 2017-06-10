@@ -36,6 +36,15 @@ func NewCube() *Mesh {
 	return mesh
 }
 
+func NewCubeForBox(box Box) *Mesh {
+	m := Translate(Vector{0.5, 0.5, 0.5})
+	m = m.Scale(box.Size())
+	m = m.Translate(box.Min)
+	cube := NewCube()
+	cube.Transform(m)
+	return cube
+}
+
 func NewSphere(lngStep, latStep int) *Mesh {
 	var triangles []*Triangle
 	for lat0 := -90; lat0 < 90; lat0 += latStep {

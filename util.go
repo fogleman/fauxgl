@@ -1,12 +1,15 @@
 package fauxgl
 
 import (
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	"image/png"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 func Radians(degrees float64) float64 {
@@ -23,6 +26,21 @@ func LatLngToXYZ(lat, lng float64) Vector {
 	y := math.Cos(lat) * math.Sin(lng)
 	z := math.Sin(lat)
 	return Vector{x, y, z}
+}
+
+func LoadMesh(path string) (*Mesh, error) {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".stl":
+		return LoadSTL(path)
+	case ".obj":
+		return LoadOBJ(path)
+	case ".ply":
+		return LoadPLY(path)
+	case ".3ds":
+		return Load3DS(path)
+	}
+	return nil, fmt.Errorf("unrecognized mesh extension: %s", ext)
 }
 
 func LoadImage(path string) (image.Image, error) {
