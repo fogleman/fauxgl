@@ -45,6 +45,29 @@ func NewCubeForBox(box Box) *Mesh {
 	return cube
 }
 
+func NewCubeOutlineForBox(box Box) *Mesh {
+	x0 := box.Min.X
+	y0 := box.Min.Y
+	z0 := box.Min.Z
+	x1 := box.Max.X
+	y1 := box.Max.Y
+	z1 := box.Max.Z
+	return NewLineMesh([]*Line{
+		NewLineForPoints(Vector{x0, y0, z0}, Vector{x0, y0, z1}),
+		NewLineForPoints(Vector{x0, y1, z0}, Vector{x0, y1, z1}),
+		NewLineForPoints(Vector{x1, y0, z0}, Vector{x1, y0, z1}),
+		NewLineForPoints(Vector{x1, y1, z0}, Vector{x1, y1, z1}),
+		NewLineForPoints(Vector{x0, y0, z0}, Vector{x0, y1, z0}),
+		NewLineForPoints(Vector{x0, y0, z1}, Vector{x0, y1, z1}),
+		NewLineForPoints(Vector{x1, y0, z0}, Vector{x1, y1, z0}),
+		NewLineForPoints(Vector{x1, y0, z1}, Vector{x1, y1, z1}),
+		NewLineForPoints(Vector{x0, y0, z0}, Vector{x1, y0, z0}),
+		NewLineForPoints(Vector{x0, y1, z0}, Vector{x1, y1, z0}),
+		NewLineForPoints(Vector{x0, y0, z1}, Vector{x1, y0, z1}),
+		NewLineForPoints(Vector{x0, y1, z1}, Vector{x1, y1, z1}),
+	})
+}
+
 func NewSphere(lngStep, latStep int) *Mesh {
 	var triangles []*Triangle
 	for lat0 := -90; lat0 < 90; lat0 += latStep {

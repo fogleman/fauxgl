@@ -29,29 +29,6 @@ func BoxForBoxes(boxes []Box) Box {
 	return Box{Vector{x0, y0, z0}, Vector{x1, y1, z1}}
 }
 
-func (a Box) Outline() *Mesh {
-	x0 := a.Min.X
-	y0 := a.Min.Y
-	z0 := a.Min.Z
-	x1 := a.Max.X
-	y1 := a.Max.Y
-	z1 := a.Max.Z
-	return NewLineMesh([]*Line{
-		NewLineForPoints(Vector{x0, y0, z0}, Vector{x0, y0, z1}),
-		NewLineForPoints(Vector{x0, y1, z0}, Vector{x0, y1, z1}),
-		NewLineForPoints(Vector{x1, y0, z0}, Vector{x1, y0, z1}),
-		NewLineForPoints(Vector{x1, y1, z0}, Vector{x1, y1, z1}),
-		NewLineForPoints(Vector{x0, y0, z0}, Vector{x0, y1, z0}),
-		NewLineForPoints(Vector{x0, y0, z1}, Vector{x0, y1, z1}),
-		NewLineForPoints(Vector{x1, y0, z0}, Vector{x1, y1, z0}),
-		NewLineForPoints(Vector{x1, y0, z1}, Vector{x1, y1, z1}),
-		NewLineForPoints(Vector{x0, y0, z0}, Vector{x1, y0, z0}),
-		NewLineForPoints(Vector{x0, y1, z0}, Vector{x1, y1, z0}),
-		NewLineForPoints(Vector{x0, y0, z1}, Vector{x1, y0, z1}),
-		NewLineForPoints(Vector{x0, y1, z1}, Vector{x1, y1, z1}),
-	})
-}
-
 func (a Box) Volume() float64 {
 	s := a.Size()
 	return s.X * s.Y * s.Z
