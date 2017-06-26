@@ -3,7 +3,10 @@ package fauxgl
 import (
 	"bufio"
 	"encoding/binary"
+	"io"
+	"math"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -76,6 +79,10 @@ func loadSTLA(file *os.File) (*Mesh, error) {
 	return NewTriangleMesh(triangles), scanner.Err()
 }
 
+func makeFloat(b []byte) float64 {
+	return float64(math.Float32frombits(binary.LittleEndian.Uint32(b)))
+}
+
 func loadSTLB(file *os.File) (*Mesh, error) {
 	r := bufio.NewReader(file)
 	header := STLHeader{}
@@ -84,19 +91,36 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 	}
 	count := int(header.Count)
 	triangles := make([]*Triangle, count)
-	for i := 0; i < count; i++ {
-		d := STLTriangle{}
-		if err := binary.Read(r, binary.LittleEndian, &d); err != nil {
-			return nil, err
-		}
-		t := Triangle{}
-		t.V1.Position = Vector{float64(d.V1[0]), float64(d.V1[1]), float64(d.V1[2])}
-		t.V2.Position = Vector{float64(d.V2[0]), float64(d.V2[1]), float64(d.V2[2])}
-		t.V3.Position = Vector{float64(d.V3[0]), float64(d.V3[1]), float64(d.V3[2])}
-		t.FixNormals()
-		triangles[i] = &t
+	b := make([]byte, count*50)
+	_, err := io.ReadFull(r, b)
+	if err != nil {
+		return nil, err
 	}
-	return NewTriangleMesh(triangles), nil
+	wn := runtime.NumCPU()
+	ch := make(chan Box, wn)
+	for wi := 0; wi < wn; wi++ {
+		go func(wi, wn int) {
+			box := EmptyBox
+			for i := wi; i < count; i += wn {
+				j := i * 50
+				t := Triangle{}
+				t.V1.Position = Vector{makeFloat(b[j+12 : j+16]), makeFloat(b[j+16 : j+20]), makeFloat(b[j+20 : j+24])}
+				t.V2.Position = Vector{makeFloat(b[j+24 : j+28]), makeFloat(b[j+28 : j+32]), makeFloat(b[j+32 : j+36])}
+				t.V3.Position = Vector{makeFloat(b[j+36 : j+40]), makeFloat(b[j+40 : j+44]), makeFloat(b[j+44 : j+48])}
+				t.FixNormals()
+				box = box.Extend(t.BoundingBox())
+				triangles[i] = &t
+			}
+			ch <- box
+		}(wi, wn)
+	}
+	box := EmptyBox
+	for wi := 0; wi < wn; wi++ {
+		box = box.Extend(<-ch)
+	}
+	mesh := NewTriangleMesh(triangles)
+	mesh.box = &box
+	return mesh, nil
 }
 
 func SaveSTL(path string, mesh *Mesh) error {
