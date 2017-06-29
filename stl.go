@@ -91,6 +91,7 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 	}
 	count := int(header.Count)
 	triangles := make([]*Triangle, count)
+	_triangles := make([]Triangle, count)
 	b := make([]byte, count*50)
 	_, err := io.ReadFull(r, b)
 	if err != nil {
@@ -100,18 +101,47 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 	ch := make(chan Box, wn)
 	for wi := 0; wi < wn; wi++ {
 		go func(wi, wn int) {
-			box := EmptyBox
+			var min, max Vector
 			for i := wi; i < count; i += wn {
 				j := i * 50
-				t := Triangle{}
-				t.V1.Position = Vector{makeFloat(b[j+12 : j+16]), makeFloat(b[j+16 : j+20]), makeFloat(b[j+20 : j+24])}
-				t.V2.Position = Vector{makeFloat(b[j+24 : j+28]), makeFloat(b[j+28 : j+32]), makeFloat(b[j+32 : j+36])}
-				t.V3.Position = Vector{makeFloat(b[j+36 : j+40]), makeFloat(b[j+40 : j+44]), makeFloat(b[j+44 : j+48])}
-				t.FixNormals()
-				box = box.Extend(t.BoundingBox())
-				triangles[i] = &t
+				v1 := Vector{makeFloat(b[j+12 : j+16]), makeFloat(b[j+16 : j+20]), makeFloat(b[j+20 : j+24])}
+				v2 := Vector{makeFloat(b[j+24 : j+28]), makeFloat(b[j+28 : j+32]), makeFloat(b[j+32 : j+36])}
+				v3 := Vector{makeFloat(b[j+36 : j+40]), makeFloat(b[j+40 : j+44]), makeFloat(b[j+44 : j+48])}
+				t := &_triangles[i]
+				t.V1.Position = v1
+				t.V2.Position = v2
+				t.V3.Position = v3
+				n := t.Normal()
+				t.V1.Normal = n
+				t.V2.Normal = n
+				t.V3.Normal = n
+				if i == wi {
+					min = v1
+					max = v1
+				}
+				for _, v := range [3]Vector{v1, v2, v3} {
+					if v.X < min.X {
+						min.X = v.X
+					}
+					if v.Y < min.Y {
+						min.Y = v.Y
+					}
+					if v.Z < min.Z {
+						min.Z = v.Z
+					}
+					if v.X > max.X {
+						max.X = v.X
+					}
+					if v.Y > max.Y {
+						max.Y = v.Y
+					}
+					if v.Z > max.Z {
+						max.Z = v.Z
+					}
+				}
+				triangles[i] = t
 			}
-			ch <- box
+			ch <- Box{min, max}
 		}(wi, wn)
 	}
 	box := EmptyBox
