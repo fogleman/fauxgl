@@ -23,6 +23,13 @@ func (t *Triangle) Normal() Vector {
 	return e1.Cross(e2).Normalize()
 }
 
+func (t *Triangle) Area() float64 {
+	e1 := t.V2.Position.Sub(t.V1.Position)
+	e2 := t.V3.Position.Sub(t.V1.Position)
+	n := e1.Cross(e2)
+	return n.Length() / 2
+}
+
 func (t *Triangle) FixNormals() {
 	n := t.Normal()
 	zero := Vector{}

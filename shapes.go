@@ -104,6 +104,39 @@ func NewSphere(lngStep, latStep int) *Mesh {
 	return NewTriangleMesh(triangles)
 }
 
+func NewSphere2(detail int) *Mesh {
+	var triangles []*Triangle
+	v := []Vector{
+		{0, 0, -1}, {1, 0, 0}, {0, -1, 0},
+		{-1, 0, 0}, {0, 1, 0}, {0, 0, 1},
+	}
+	triangles = append(triangles, newSphereHelper(detail, v[0], v[3], v[4])...)
+	triangles = append(triangles, newSphereHelper(detail, v[0], v[4], v[1])...)
+	triangles = append(triangles, newSphereHelper(detail, v[5], v[4], v[3])...)
+	triangles = append(triangles, newSphereHelper(detail, v[5], v[1], v[4])...)
+	triangles = append(triangles, newSphereHelper(detail, v[2], v[3], v[0])...)
+	triangles = append(triangles, newSphereHelper(detail, v[1], v[2], v[0])...)
+	triangles = append(triangles, newSphereHelper(detail, v[3], v[2], v[5])...)
+	triangles = append(triangles, newSphereHelper(detail, v[2], v[1], v[5])...)
+	return NewTriangleMesh(triangles)
+}
+
+func newSphereHelper(detail int, v1, v2, v3 Vector) []*Triangle {
+	if detail == 0 {
+		t := NewTriangleForPoints(v1, v2, v3)
+		return []*Triangle{t}
+	}
+	var triangles []*Triangle
+	v12 := v1.Add(v2).DivScalar(2).Normalize()
+	v13 := v1.Add(v3).DivScalar(2).Normalize()
+	v23 := v2.Add(v3).DivScalar(2).Normalize()
+	triangles = append(triangles, newSphereHelper(detail-1, v1, v12, v13)...)
+	triangles = append(triangles, newSphereHelper(detail-1, v2, v23, v12)...)
+	triangles = append(triangles, newSphereHelper(detail-1, v3, v13, v23)...)
+	triangles = append(triangles, newSphereHelper(detail-1, v12, v23, v13)...)
+	return triangles
+}
+
 func NewCylinder(step int, capped bool) *Mesh {
 	var triangles []*Triangle
 	for a0 := 0; a0 < 360; a0 += step {
