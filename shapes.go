@@ -68,7 +68,7 @@ func NewCubeOutlineForBox(box Box) *Mesh {
 	})
 }
 
-func NewSphere(lngStep, latStep int) *Mesh {
+func NewLatLngSphere(latStep, lngStep int) *Mesh {
 	var triangles []*Triangle
 	for lat0 := -90; lat0 < 90; lat0 += latStep {
 		lat1 := lat0 + latStep
@@ -104,20 +104,15 @@ func NewSphere(lngStep, latStep int) *Mesh {
 	return NewTriangleMesh(triangles)
 }
 
-func NewSphere2(detail int) *Mesh {
+func NewSphere(detail int) *Mesh {
 	var triangles []*Triangle
-	v := []Vector{
-		{0, 0, -1}, {1, 0, 0}, {0, -1, 0},
-		{-1, 0, 0}, {0, 1, 0}, {0, 0, 1},
+	ico := NewIcosahedron()
+	for _, t := range ico.Triangles {
+		v1 := t.V1.Position
+		v2 := t.V2.Position
+		v3 := t.V3.Position
+		triangles = append(triangles, newSphereHelper(detail, v1, v2, v3)...)
 	}
-	triangles = append(triangles, newSphereHelper(detail, v[0], v[3], v[4])...)
-	triangles = append(triangles, newSphereHelper(detail, v[0], v[4], v[1])...)
-	triangles = append(triangles, newSphereHelper(detail, v[5], v[4], v[3])...)
-	triangles = append(triangles, newSphereHelper(detail, v[5], v[1], v[4])...)
-	triangles = append(triangles, newSphereHelper(detail, v[2], v[3], v[0])...)
-	triangles = append(triangles, newSphereHelper(detail, v[1], v[2], v[0])...)
-	triangles = append(triangles, newSphereHelper(detail, v[3], v[2], v[5])...)
-	triangles = append(triangles, newSphereHelper(detail, v[2], v[1], v[5])...)
 	return NewTriangleMesh(triangles)
 }
 
@@ -187,6 +182,55 @@ func NewCone(step int, capped bool) *Mesh {
 			t2 := NewTriangleForPoints(p0, p10, p00)
 			triangles = append(triangles, t2)
 		}
+	}
+	return NewTriangleMesh(triangles)
+}
+
+func NewIcosahedron() *Mesh {
+	const a = 0.8506507174597755
+	const b = 0.5257312591858783
+	vertices := []Vector{
+		{-a, -b, 0},
+		{-a, b, 0},
+		{-b, 0, -a},
+		{-b, 0, a},
+		{0, -a, -b},
+		{0, -a, b},
+		{0, a, -b},
+		{0, a, b},
+		{b, 0, -a},
+		{b, 0, a},
+		{a, -b, 0},
+		{a, b, 0},
+	}
+	indices := [][3]int{
+		{0, 3, 1},
+		{1, 3, 7},
+		{2, 0, 1},
+		{2, 1, 6},
+		{4, 0, 2},
+		{4, 5, 0},
+		{5, 3, 0},
+		{6, 1, 7},
+		{6, 7, 11},
+		{7, 3, 9},
+		{8, 2, 6},
+		{8, 4, 2},
+		{8, 6, 11},
+		{8, 10, 4},
+		{8, 11, 10},
+		{9, 3, 5},
+		{10, 5, 4},
+		{10, 9, 5},
+		{11, 7, 9},
+		{11, 9, 10},
+	}
+	triangles := make([]*Triangle, len(indices))
+	for i, idx := range indices {
+		p1 := vertices[idx[0]]
+		p2 := vertices[idx[1]]
+		p3 := vertices[idx[2]]
+		triangles[i] = NewTriangleForPoints(p1, p2, p3)
 	}
 	return NewTriangleMesh(triangles)
 }

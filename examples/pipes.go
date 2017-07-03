@@ -58,7 +58,7 @@ func (c Cell) Vector() Vector {
 
 func (c Cell) Mesh() *Mesh {
 	const s = 0.125
-	mesh := NewSphere(15, 15)
+	mesh := NewLatLngSphere(15, 15)
 	mesh.Transform(Scale(V(s, s, s)).Translate(c.Vector()))
 	return mesh
 }
