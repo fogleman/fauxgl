@@ -17,6 +17,19 @@ func NewTriangleForPoints(p1, p2, p3 Vector) *Triangle {
 	return NewTriangle(v1, v2, v3)
 }
 
+func (t *Triangle) IsDegenerate() bool {
+	p1 := t.V1.Position
+	p2 := t.V2.Position
+	p3 := t.V3.Position
+	if p1 == p2 || p1 == p3 || p2 == p3 {
+		return true
+	}
+	if p1.IsDegenerate() || p2.IsDegenerate() || p3.IsDegenerate() {
+		return true
+	}
+	return false
+}
+
 func (t *Triangle) Normal() Vector {
 	e1 := t.V2.Position.Sub(t.V1.Position)
 	e2 := t.V3.Position.Sub(t.V1.Position)
