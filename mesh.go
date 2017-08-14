@@ -52,10 +52,29 @@ func (a *Mesh) Add(b *Mesh) {
 	a.dirty()
 }
 
-func (a *Mesh) SetColor(c Color) {
-	for _, t := range a.Triangles {
+func (m *Mesh) SetColor(c Color) {
+	for _, t := range m.Triangles {
 		t.SetColor(c)
 	}
+}
+
+func (m *Mesh) Volume() float64 {
+	var v float64
+	for _, t := range m.Triangles {
+		p1 := t.V1.Position
+		p2 := t.V2.Position
+		p3 := t.V3.Position
+		v += p1.X*(p2.Y*p3.Z-p3.Y*p2.Z) - p2.X*(p1.Y*p3.Z-p3.Y*p1.Z) + p3.X*(p1.Y*p2.Z-p2.Y*p1.Z)
+	}
+	return math.Abs(v / 6)
+}
+
+func (m *Mesh) SurfaceArea() float64 {
+	var a float64
+	for _, t := range m.Triangles {
+		a += t.Area()
+	}
+	return a
 }
 
 func smoothNormalsThreshold(normal Vector, normals []Vector, threshold float64) Vector {
