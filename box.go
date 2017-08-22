@@ -53,6 +53,13 @@ func (a Box) Extend(b Box) Box {
 	return Box{a.Min.Min(b.Min), a.Max.Max(b.Max)}
 }
 
+func (a Box) ExtendPoint(b Vector) Box {
+	if a == EmptyBox {
+		return Box{b, b}
+	}
+	return Box{a.Min.Min(b), a.Max.Max(b)}
+}
+
 func (a Box) Offset(x float64) Box {
 	return Box{a.Min.SubScalar(x), a.Max.AddScalar(x)}
 }

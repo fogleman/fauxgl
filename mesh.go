@@ -203,3 +203,20 @@ func (m *Mesh) Simplify(factor float64) {
 func (m *Mesh) SaveSTL(path string) error {
 	return SaveSTL(path, m)
 }
+
+func (m *Mesh) AxisAlignZ() Matrix {
+	distinctPoints := make(map[Vector]bool)
+	for _, t := range m.Triangles {
+		distinctPoints[t.V1.Position] = true
+		distinctPoints[t.V2.Position] = true
+		distinctPoints[t.V3.Position] = true
+	}
+	points := make([]Vector, 0, len(distinctPoints))
+	for p := range distinctPoints {
+		points = append(points, p)
+	}
+	angle := convexHullAndRotatingCalipers(points)
+	matrix := Rotate(Vector{0, 0, 1}, angle)
+	m.Transform(matrix)
+	return matrix
+}
