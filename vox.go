@@ -103,7 +103,7 @@ func LoadVOX(path string) ([]Voxel, error) {
 	return voxels, nil
 }
 
-var voxDefaultPalette = []int{
+var voxDefaultPalette = []uint{
 	0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff,
 	0xff66ffff, 0xff33ffff, 0xff00ffff, 0xffffccff,
 	0xffccccff, 0xff99ccff, 0xff66ccff, 0xff33ccff,
