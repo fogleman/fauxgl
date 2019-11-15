@@ -203,3 +203,7 @@ func (m *Mesh) Simplify(factor float64) {
 func (m *Mesh) SaveSTL(path string) error {
 	return SaveSTL(path, m)
 }
+
+func (m *Mesh) Silhouette(eye Vector, offset float64) *Mesh {
+	return silhouette(m, eye, offset)
+}
