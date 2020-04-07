@@ -207,3 +207,50 @@ func (m *Mesh) SaveSTL(path string) error {
 func (m *Mesh) Silhouette(eye Vector, offset float64) *Mesh {
 	return silhouette(m, eye, offset)
 }
+
+func (m *Mesh) SplitTriangles(maxEdgeLength float64) {
+	var triangles []*Triangle
+
+	var split func(t *Triangle)
+
+	split = func(t *Triangle) {
+		v1 := t.V1
+		v2 := t.V2
+		v3 := t.V3
+		p1 := v1.Position
+		p2 := v2.Position
+		p3 := v3.Position
+		d12 := p1.Distance(p2)
+		d23 := p2.Distance(p3)
+		d31 := p3.Distance(p1)
+		max := math.Max(d12, math.Max(d23, d31))
+		if max <= maxEdgeLength {
+			triangles = append(triangles, t)
+		} else if d12 == max {
+			v := InterpolateVertexes(v1, v2, v3, VectorW{0.5, 0.5, 0, 1})
+			t1 := NewTriangle(v3, v1, v)
+			t2 := NewTriangle(v2, v3, v)
+			split(t1)
+			split(t2)
+		} else if d23 == max {
+			v := InterpolateVertexes(v1, v2, v3, VectorW{0, 0.5, 0.5, 1})
+			t1 := NewTriangle(v1, v2, v)
+			t2 := NewTriangle(v3, v1, v)
+			split(t1)
+			split(t2)
+		} else {
+			v := InterpolateVertexes(v1, v2, v3, VectorW{0.5, 0, 0.5, 1})
+			t1 := NewTriangle(v2, v3, v)
+			t2 := NewTriangle(v1, v2, v)
+			split(t1)
+			split(t2)
+		}
+	}
+
+	for _, t := range m.Triangles {
+		split(t)
+	}
+
+	m.Triangles = triangles
+	m.dirty()
+}
