@@ -42,8 +42,8 @@ func (t *ImageTexture) BilinearSample(u, v float64) Color {
 	v = 1 - v
 	u -= math.Floor(u)
 	v -= math.Floor(v)
-	x := u * float64(t.Width)
-	y := v * float64(t.Height)
+	x := u * float64(t.Width-1)
+	y := v * float64(t.Height-1)
 	x0 := int(x)
 	y0 := int(y)
 	x1 := x0 + 1
