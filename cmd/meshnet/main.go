@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	W = 4096
-	H = 4096
+	W = 1024
+	H = 1024
 )
 
 func circleCircleIntersection(p0 Vector, r0 float64, p1 Vector, r1 float64) Vector {
@@ -80,18 +80,15 @@ func (pq PriorityQueue) Len() int {
 }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return -pq[i].Score < -pq[j].Score
+	return pq[i].Score < pq[j].Score
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
-	// pq[i].QueueIndex = i
-	// pq[j].QueueIndex = j
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
 	item := x.(PriorityItem)
-	// item.QueueIndex = len(*pq)
 	*pq = append(*pq, item)
 }
 
@@ -99,7 +96,6 @@ func (pq *PriorityQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
-	// item.QueueIndex = -1
 	*pq = old[:n-1]
 	return item
 }
@@ -118,9 +114,9 @@ func main() {
 	// maps a 3D directed edge to its triangle
 	edgeTriangle := make(map[Edge]*Triangle)
 	for _, t := range mesh.Triangles {
-		// if t.Normal().Dot(Vector{0, 0, -1}) > 0.99 {
-		// 	continue
-		// }
+		if t.Normal().Dot(Vector{0, 0, -1}) >= 1-1e-9 {
+			continue
+		}
 		edges := triangleEdges(t)
 		edgeTriangle[edges[0]] = t
 		edgeTriangle[edges[1]] = t
@@ -129,19 +125,20 @@ func main() {
 
 	// maps an edge in 3D to its 2D placement
 	flatEdge := make(map[Edge]Edge)
-	// flatTriangles := make(map[*Triangle]*Triangle)
-	var triangles []*Triangle
+
+	// flat triangles
+	var flatTriangles []*Triangle
 
 	// true for processed triangles
 	done := make(map[*Triangle]bool)
 
-	scoreForEdge := func(e Edge) float64 {
+	scoreForEdge := func(parent PriorityItem, e Edge) float64 {
 		a := edgeTriangle[e]
 		b := edgeTriangle[e.Opposite()]
 		if a == nil || b == nil {
 			return 0
 		}
-		return a.Normal().Dot(b.Normal())
+		return math.Acos(a.Normal().Dot(b.Normal()))
 	}
 
 	// queue of remaining edges to process
@@ -159,29 +156,24 @@ func main() {
 		p2 := circleCircleIntersection(p0, edges[2].Length(), p1, edges[1].Length())
 
 		// update data structures
-		// flatTriangles[t] = NewTriangleForPoints(p0, p1, p2)
-		triangles = append(triangles, NewTriangleForPoints(p0, p1, p2))
+		flatTriangles = append(flatTriangles, NewTriangleForPoints(p0, p1, p2))
 		flatEdge[edges[0]] = Edge{p0, p1}
 		flatEdge[edges[1]] = Edge{p1, p2}
 		flatEdge[edges[2]] = Edge{p2, p0}
 		for _, e := range edges {
 			e = e.Opposite()
-			score := scoreForEdge(e)
+			score := scoreForEdge(PriorityItem{}, e)
 			item := PriorityItem{e, score}
 			heap.Push(&q, item)
 		}
-		// q = append(q, edges[0].Opposite())
-		// q = append(q, edges[1].Opposite())
-		// q = append(q, edges[2].Opposite())
 		done[t] = true
 	}
 
 	// while queue is non empty
 	for len(q) > 0 {
 		// pop an edge from the queue
-		e := heap.Pop(&q).(PriorityItem).Edge
-		// e := q[0]
-		// q = q[1:]
+		item := heap.Pop(&q).(PriorityItem)
+		e := item.Edge
 
 		// lookup edge triangle
 		t := edgeTriangle[e]
@@ -200,22 +192,19 @@ func main() {
 		}
 
 		// update data structures
-		// flatTriangles[t] = NewTriangleForPoints(f.A, f.B, p)
-		triangles = append(triangles, NewTriangleForPoints(f.A, f.B, p))
+		flatTriangles = append(flatTriangles, NewTriangleForPoints(f.A, f.B, p))
 		flatEdge[e2] = Edge{f.B, p}
 		flatEdge[e3] = Edge{p, f.A}
-		// q = append(q, e2.Opposite())
-		// q = append(q, e3.Opposite())
-		heap.Push(&q, PriorityItem{e2.Opposite(), scoreForEdge(e2.Opposite())})
-		heap.Push(&q, PriorityItem{e3.Opposite(), scoreForEdge(e3.Opposite())})
+		s2 := scoreForEdge(item, e2.Opposite())
+		s3 := scoreForEdge(item, e3.Opposite())
+		heap.Push(&q, PriorityItem{e2.Opposite(), s2})
+		heap.Push(&q, PriorityItem{e3.Opposite(), s3})
 		done[t] = true
-
-		// fmt.Println(len(done))
 	}
 
 	// compute flat bounds
 	var x0, y0, x1, y1, totalArea float64
-	for _, t := range triangles {
+	for _, t := range flatTriangles {
 		totalArea += t.Area()
 		for _, p := range []Vector{t.V1.Position, t.V2.Position, t.V3.Position} {
 			x0 = math.Min(x0, p.X)
@@ -230,6 +219,9 @@ func main() {
 	s := math.Min(W/dx, H/dy) * 0.95
 	fmt.Println(s)
 
+	fmt.Println(len(mesh.Triangles))
+	fmt.Println(len(flatTriangles))
+
 	dc := gg.NewContext(W, H)
 	dc.Translate(W/2, H/2)
 	dc.Scale(s, s)
@@ -238,11 +230,16 @@ func main() {
 	dc.SetRGB(0, 0, 0)
 	dc.Clear()
 	dc.SetRGBA(0, 0, 0, 0.5)
-	dc.SetLineWidth(0.5)
+	dc.SetLineWidth(0.1)
 	var area float64
-	for _, t := range triangles {
+	rate := len(flatTriangles) / 600
+	_ = rate
+	var prev float64
+	var index int
+	for i, t := range flatTriangles {
+		_ = i
 		area += t.Area()
-		dc.SetColor(colormap.Blues.At(area / totalArea))
+		dc.SetColor(colormap.Spectral.At(area / totalArea))
 		p0 := t.V1.Position
 		p1 := t.V2.Position
 		p2 := t.V3.Position
@@ -252,6 +249,14 @@ func main() {
 		dc.ClosePath()
 		dc.FillPreserve()
 		dc.Stroke()
+		if area-prev > totalArea/600 {
+			// if (i+1)%rate == 0 {
+			prev = area
+			// path := fmt.Sprintf("%08d.png", index)
+			// dc.SavePNG(path)
+			index++
+		}
 	}
-	dc.SavePNG("out.png")
+	path := fmt.Sprintf("out%d.png", time.Now().UnixNano())
+	dc.SavePNG(path)
 }
