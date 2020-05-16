@@ -1,6 +1,10 @@
 package fauxgl
 
-import "math"
+import (
+	"math"
+
+	"github.com/beorn7/floats"
+)
 
 type Matrix struct {
 	X00, X01, X02, X03 float64
@@ -47,9 +51,11 @@ func Rotate(v Vector, a float64) Matrix {
 
 func RotateTo(a, b Vector) Matrix {
 	dot := b.Dot(a)
-	if dot == 1 {
+	// To avoid occasional NaN results
+	// TODO: epsilon might be an input or ...
+	if floats.AlmostEqual(dot, 1, .0001) {
 		return Identity()
-	} else if dot == -1 {
+	} else if floats.AlmostEqual(dot, -1, .0001) {
 		return Rotate(a.Perpendicular(), math.Pi)
 	} else {
 		angle := math.Acos(dot)
