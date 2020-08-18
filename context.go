@@ -2,6 +2,7 @@ package fauxgl
 
 import (
 	"image"
+	"image/color"
 	"math"
 	"runtime"
 	"sync"
@@ -81,6 +82,38 @@ func NewContext(width, height int) *Context {
 
 func (dc *Context) Image() image.Image {
 	return dc.ColorBuffer
+}
+
+func (dc *Context) DepthImage() image.Image {
+	lo := math.MaxFloat64
+	hi := -math.MaxFloat64
+	for _, d := range dc.DepthBuffer {
+		if d == math.MaxFloat64 {
+			continue
+		}
+		if d < lo {
+			lo = d
+		}
+		if d > hi {
+			hi = d
+		}
+	}
+
+	im := image.NewGray16(image.Rect(0, 0, dc.Width, dc.Height))
+	var i int
+	for y := 0; y < dc.Height; y++ {
+		for x := 0; x < dc.Width; x++ {
+			d := dc.DepthBuffer[i]
+			t := (d - lo) / (hi - lo)
+			if d == math.MaxFloat64 {
+				t = 1
+			}
+			c := color.Gray16{uint16(t * 0xffff)}
+			im.SetGray16(x, y, c)
+			i++
+		}
+	}
+	return im
 }
 
 func (dc *Context) ClearColorBufferWith(color Color) {
