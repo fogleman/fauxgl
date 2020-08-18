@@ -204,8 +204,16 @@ func (m *Mesh) SaveSTL(path string) error {
 	return SaveSTL(path, m)
 }
 
+func (m *Mesh) Tree() *Tree {
+	return NewTree(m.Triangles)
+}
+
 func (m *Mesh) Silhouette(eye Vector, offset float64) *Mesh {
 	return silhouette(m, eye, offset)
+}
+
+func (m *Mesh) SharpEdges(angleThreshold float64) *Mesh {
+	return sharpEdges(m, angleThreshold)
 }
 
 func (m *Mesh) SplitTriangles(maxEdgeLength float64) {

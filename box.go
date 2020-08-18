@@ -29,6 +29,17 @@ func BoxForBoxes(boxes []Box) Box {
 	return Box{Vector{x0, y0, z0}, Vector{x1, y1, z1}}
 }
 
+func BoxForTriangles(triangles []*Triangle) Box {
+	if len(triangles) == 0 {
+		return EmptyBox
+	}
+	box := triangles[0].BoundingBox()
+	for _, t := range triangles {
+		box = box.Extend(t.BoundingBox())
+	}
+	return box
+}
+
 func (a Box) Volume() float64 {
 	s := a.Size()
 	return s.X * s.Y * s.Z
@@ -90,4 +101,40 @@ func (a Box) Intersection(b Box) Box {
 
 func (a Box) Transform(m Matrix) Box {
 	return m.MulBox(a)
+}
+
+func (b *Box) IntersectRay(r Ray) (float64, float64) {
+	x1 := (b.Min.X - r.Origin.X) / r.Direction.X
+	y1 := (b.Min.Y - r.Origin.Y) / r.Direction.Y
+	z1 := (b.Min.Z - r.Origin.Z) / r.Direction.Z
+	x2 := (b.Max.X - r.Origin.X) / r.Direction.X
+	y2 := (b.Max.Y - r.Origin.Y) / r.Direction.Y
+	z2 := (b.Max.Z - r.Origin.Z) / r.Direction.Z
+	if x1 > x2 {
+		x1, x2 = x2, x1
+	}
+	if y1 > y2 {
+		y1, y2 = y2, y1
+	}
+	if z1 > z2 {
+		z1, z2 = z2, z1
+	}
+	t1 := math.Max(math.Max(x1, y1), z1)
+	t2 := math.Min(math.Min(x2, y2), z2)
+	return t1, t2
+}
+
+func (b *Box) Partition(axis Axis, point float64) (left, right bool) {
+	switch axis {
+	case AxisX:
+		left = b.Min.X <= point
+		right = b.Max.X >= point
+	case AxisY:
+		left = b.Min.Y <= point
+		right = b.Max.Y >= point
+	case AxisZ:
+		left = b.Min.Z <= point
+		right = b.Max.Z >= point
+	}
+	return
 }

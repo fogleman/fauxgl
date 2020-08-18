@@ -1,5 +1,7 @@
 package fauxgl
 
+import "math"
+
 func silhouette(mesh *Mesh, eye Vector, offset float64) *Mesh {
 	var lines []*Line
 
@@ -49,5 +51,41 @@ func silhouette(mesh *Mesh, eye Vector, offset float64) *Mesh {
 		lines = append(lines, line)
 	}
 
+	return NewLineMesh(lines)
+}
+
+func sharpEdges(mesh *Mesh, angleThreshold float64) *Mesh {
+	type Edge struct {
+		A, B Vector
+	}
+
+	makeEdge := func(a, b Vector) Edge {
+		if a.Less(b) {
+			return Edge{a, b}
+		}
+		return Edge{b, a}
+	}
+
+	var lines []*Line
+	other := make(map[Edge]*Triangle)
+	for _, t := range mesh.Triangles {
+		p1 := t.V1.Position
+		p2 := t.V2.Position
+		p3 := t.V3.Position
+		e1 := makeEdge(p1, p2)
+		e2 := makeEdge(p2, p3)
+		e3 := makeEdge(p3, p1)
+		for _, e := range []Edge{e1, e2, e3} {
+			if u, ok := other[e]; ok {
+				a := math.Acos(t.Normal().Dot(u.Normal()))
+				if a > angleThreshold {
+					lines = append(lines, NewLineForPoints(e.A, e.B))
+				}
+			}
+		}
+		other[e1] = t
+		other[e2] = t
+		other[e3] = t
+	}
 	return NewLineMesh(lines)
 }

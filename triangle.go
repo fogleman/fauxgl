@@ -98,8 +98,38 @@ func (t *Triangle) SetColor(c Color) {
 // 	}
 // }
 
-// func (t *Triangle) Area() float64 {
-// 	e1 := t.V2.Position.Sub(t.V1.Position)
-// 	e2 := t.V3.Position.Sub(t.V1.Position)
-// 	return e1.Cross(e2).Length() / 2
-// }
+func (t *Triangle) IntersectRay(r Ray) Hit {
+	e1x := t.V2.Position.X - t.V1.Position.X
+	e1y := t.V2.Position.Y - t.V1.Position.Y
+	e1z := t.V2.Position.Z - t.V1.Position.Z
+	e2x := t.V3.Position.X - t.V1.Position.X
+	e2y := t.V3.Position.Y - t.V1.Position.Y
+	e2z := t.V3.Position.Z - t.V1.Position.Z
+	px := r.Direction.Y*e2z - r.Direction.Z*e2y
+	py := r.Direction.Z*e2x - r.Direction.X*e2z
+	pz := r.Direction.X*e2y - r.Direction.Y*e2x
+	det := e1x*px + e1y*py + e1z*pz
+	if det > -eps && det < eps {
+		return NoHit
+	}
+	inv := 1 / det
+	tx := r.Origin.X - t.V1.Position.X
+	ty := r.Origin.Y - t.V1.Position.Y
+	tz := r.Origin.Z - t.V1.Position.Z
+	u := (tx*px + ty*py + tz*pz) * inv
+	if u < 0 || u > 1 {
+		return NoHit
+	}
+	qx := ty*e1z - tz*e1y
+	qy := tz*e1x - tx*e1z
+	qz := tx*e1y - ty*e1x
+	v := (r.Direction.X*qx + r.Direction.Y*qy + r.Direction.Z*qz) * inv
+	if v < 0 || u+v > 1 {
+		return NoHit
+	}
+	d := (e2x*qx + e2y*qy + e2z*qz) * inv
+	if d < eps {
+		return NoHit
+	}
+	return Hit{t, d}
+}
