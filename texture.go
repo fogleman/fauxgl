@@ -18,6 +18,15 @@ func LoadTexture(path string) (Texture, error) {
 	return NewImageTexture(im), nil
 }
 
+func LoadTextureFromUrl(path string) (Texture, error) {
+	im, err := http.Get(url)
+        if err != nil {
+         return nil, err
+        }
+        defer im.Body.Close()
+	return NewImageTexture(im.Body), nil
+}
+
 type ImageTexture struct {
 	Width  int
 	Height int
