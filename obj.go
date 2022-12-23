@@ -84,7 +84,7 @@ func LoadOBJFromUrl(path string) (*Mesh, error) {
         if err != nil {
           return nil, err
         }
-        defer fileresp.Body.Close()
+        defer file.Body.Close()
 	vs := make([]Vector, 1, 1024)  // 1-based indexing
 	vts := make([]Vector, 1, 1024) // 1-based indexing
 	vns := make([]Vector, 1, 1024) // 1-based indexing
