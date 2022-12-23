@@ -19,7 +19,7 @@ func LoadTexture(path string) (Texture, error) {
 }
 
 func LoadTextureFromUrl(path string) (Texture, error) {
-	im, err := http.Get(url)
+	im, err := http.Get(path)
         if err != nil {
          return nil, err
         }
