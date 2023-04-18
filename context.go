@@ -37,13 +37,19 @@ func (info RasterizeInfo) Add(other RasterizeInfo) RasterizeInfo {
 	}
 }
 
-type Context struct {
+type Buffer[T comparable] interface {
+	Clear(T)
+	Write(x, y int, val T)
+	Dimensions() (int, int)
+}
+
+type Context[B Buffer[T], T comparable] struct {
 	Width        int
 	Height       int
-	ColorBuffer  *image.NRGBA
+	ColorBuffer  B
 	DepthBuffer  []float64
-	ClearColor   Color
-	Shader       Shader
+	ClearColor   T
+	Shader       Shader[T]
 	ReadDepth    bool
 	WriteDepth   bool
 	WriteColor   bool
@@ -53,18 +59,23 @@ type Context struct {
 	Cull         Cull
 	LineWidth    float64
 	DepthBias    float64
+	Discard      T
 	screenMatrix Matrix
 	locks        []sync.Mutex
 }
 
-func NewContext(width, height int) *Context {
-	dc := &Context{}
+func NewContext[B Buffer[T], T comparable](buffer B) *Context[B, T] {
+	var tZero T
+
+	width, height := buffer.Dimensions()
+
+	dc := &Context[B, T]{}
 	dc.Width = width
 	dc.Height = height
-	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
+	dc.ColorBuffer = buffer
 	dc.DepthBuffer = make([]float64, width*height)
-	dc.ClearColor = Transparent
-	dc.Shader = NewSolidColorShader(Identity(), Color{1, 0, 1, 1})
+	dc.ClearColor = tZero
+	dc.Shader = NewZeroShader[T](Identity())
 	dc.ReadDepth = true
 	dc.WriteDepth = true
 	dc.WriteColor = true
@@ -74,17 +85,14 @@ func NewContext(width, height int) *Context {
 	dc.Cull = CullBack
 	dc.LineWidth = 2
 	dc.DepthBias = 0
+	dc.Discard = tZero
 	dc.screenMatrix = Screen(width, height)
 	dc.locks = make([]sync.Mutex, 256)
 	dc.ClearDepthBuffer()
 	return dc
 }
 
-func (dc *Context) Image() image.Image {
-	return dc.ColorBuffer
-}
-
-func (dc *Context) DepthImage() image.Image {
+func (dc *Context[B, T]) DepthImage() image.Image {
 	lo := math.MaxFloat64
 	hi := -math.MaxFloat64
 	for _, d := range dc.DepthBuffer {
@@ -116,31 +124,21 @@ func (dc *Context) DepthImage() image.Image {
 	return im
 }
 
-func (dc *Context) ClearColorBufferWith(color Color) {
-	c := color.NRGBA()
-	for y := 0; y < dc.Height; y++ {
-		i := dc.ColorBuffer.PixOffset(0, y)
-		for x := 0; x < dc.Width; x++ {
-			dc.ColorBuffer.Pix[i+0] = c.R
-			dc.ColorBuffer.Pix[i+1] = c.G
-			dc.ColorBuffer.Pix[i+2] = c.B
-			dc.ColorBuffer.Pix[i+3] = c.A
-			i += 4
-		}
-	}
+func (dc *Context[B, T]) ClearColorBufferWith(color T) {
+	dc.ColorBuffer.Clear(color)
 }
 
-func (dc *Context) ClearColorBuffer() {
+func (dc *Context[B, T]) ClearColorBuffer() {
 	dc.ClearColorBufferWith(dc.ClearColor)
 }
 
-func (dc *Context) ClearDepthBufferWith(value float64) {
+func (dc *Context[B, T]) ClearDepthBufferWith(value float64) {
 	for i := range dc.DepthBuffer {
 		dc.DepthBuffer[i] = value
 	}
 }
 
-func (dc *Context) ClearDepthBuffer() {
+func (dc *Context[B, T]) ClearDepthBuffer() {
 	dc.ClearDepthBufferWith(math.MaxFloat64)
 }
 
@@ -148,7 +146,7 @@ func edge(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
 
-func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
+func (dc *Context[B, T]) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
 	var info RasterizeInfo
 
 	// integer bounding box
@@ -238,7 +236,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			v := InterpolateVertexes(v0, v1, v2, b)
 			// invoke fragment shader
 			color := dc.Shader.Fragment(v)
-			if color == Discard {
+			if color == dc.Discard {
 				continue
 			}
 			// update buffers atomically
@@ -253,21 +251,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 				}
 				if dc.WriteColor {
 					// update color buffer
-					if dc.AlphaBlend && color.A < 1 {
-						sr, sg, sb, sa := color.NRGBA().RGBA()
-						a := (0xffff - sa) * 0x101
-						j := dc.ColorBuffer.PixOffset(x, y)
-						dr := &dc.ColorBuffer.Pix[j+0]
-						dg := &dc.ColorBuffer.Pix[j+1]
-						db := &dc.ColorBuffer.Pix[j+2]
-						da := &dc.ColorBuffer.Pix[j+3]
-						*dr = uint8((uint32(*dr)*a/0xffff + sr) >> 8)
-						*dg = uint8((uint32(*dg)*a/0xffff + sg) >> 8)
-						*db = uint8((uint32(*db)*a/0xffff + sb) >> 8)
-						*da = uint8((uint32(*da)*a/0xffff + sa) >> 8)
-					} else {
-						dc.ColorBuffer.SetNRGBA(x, y, color.NRGBA())
-					}
+					dc.ColorBuffer.Write(x, y, color)
 				}
 			}
 			lock.Unlock()
@@ -280,7 +264,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 	return info
 }
 
-func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) RasterizeInfo {
+func (dc *Context[B, T]) line(v0, v1 Vertex, s0, s1 Vector) RasterizeInfo {
 	n := s1.Sub(s0).Perpendicular().MulScalar(dc.LineWidth / 2)
 	s0 = s0.Add(s0.Sub(s1).Normalize().MulScalar(dc.LineWidth / 2))
 	s1 = s1.Add(s1.Sub(s0).Normalize().MulScalar(dc.LineWidth / 2))
@@ -293,14 +277,14 @@ func (dc *Context) line(v0, v1 Vertex, s0, s1 Vector) RasterizeInfo {
 	return info1.Add(info2)
 }
 
-func (dc *Context) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
+func (dc *Context[B, T]) wireframe(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo {
 	info1 := dc.line(v0, v1, s0, s1)
 	info2 := dc.line(v1, v2, s1, s2)
 	info3 := dc.line(v2, v0, s2, s0)
 	return info1.Add(info2).Add(info3)
 }
 
-func (dc *Context) drawClippedLine(v0, v1 Vertex) RasterizeInfo {
+func (dc *Context[B, T]) drawClippedLine(v0, v1 Vertex) RasterizeInfo {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
@@ -313,7 +297,7 @@ func (dc *Context) drawClippedLine(v0, v1 Vertex) RasterizeInfo {
 	return dc.line(v0, v1, s0, s1)
 }
 
-func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) RasterizeInfo {
+func (dc *Context[B, T]) drawClippedTriangle(v0, v1, v2 Vertex) RasterizeInfo {
 	// normalized device coordinates
 	ndc0 := v0.Output.DivScalar(v0.Output.W).Vector()
 	ndc1 := v1.Output.DivScalar(v1.Output.W).Vector()
@@ -348,7 +332,7 @@ func (dc *Context) drawClippedTriangle(v0, v1, v2 Vertex) RasterizeInfo {
 	}
 }
 
-func (dc *Context) DrawLine(t *Line) RasterizeInfo {
+func (dc *Context[B, T]) DrawLine(t *Line) RasterizeInfo {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
 	v2 := dc.Shader.Vertex(t.V2)
@@ -367,7 +351,7 @@ func (dc *Context) DrawLine(t *Line) RasterizeInfo {
 	}
 }
 
-func (dc *Context) DrawTriangle(t *Triangle) RasterizeInfo {
+func (dc *Context[B, T]) DrawTriangle(t *Triangle) RasterizeInfo {
 	// invoke vertex shader
 	v1 := dc.Shader.Vertex(t.V1)
 	v2 := dc.Shader.Vertex(t.V2)
@@ -388,7 +372,7 @@ func (dc *Context) DrawTriangle(t *Triangle) RasterizeInfo {
 	}
 }
 
-func (dc *Context) DrawLines(lines []*Line) RasterizeInfo {
+func (dc *Context[B, T]) DrawLines(lines []*Line) RasterizeInfo {
 	wn := runtime.NumCPU()
 	ch := make(chan RasterizeInfo, wn)
 	for wi := 0; wi < wn; wi++ {
@@ -410,7 +394,7 @@ func (dc *Context) DrawLines(lines []*Line) RasterizeInfo {
 	return result
 }
 
-func (dc *Context) DrawTriangles(triangles []*Triangle) RasterizeInfo {
+func (dc *Context[B, T]) DrawTriangles(triangles []*Triangle) RasterizeInfo {
 	wn := runtime.NumCPU()
 	ch := make(chan RasterizeInfo, wn)
 	for wi := 0; wi < wn; wi++ {
@@ -432,7 +416,7 @@ func (dc *Context) DrawTriangles(triangles []*Triangle) RasterizeInfo {
 	return result
 }
 
-func (dc *Context) DrawMesh(mesh *Mesh) RasterizeInfo {
+func (dc *Context[B, T]) DrawMesh(mesh *Mesh) RasterizeInfo {
 	info1 := dc.DrawTriangles(mesh.Triangles)
 	info2 := dc.DrawLines(mesh.Lines)
 	return info1.Add(info2)

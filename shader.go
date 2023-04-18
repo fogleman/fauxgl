@@ -2,9 +2,9 @@ package fauxgl
 
 import "math"
 
-type Shader interface {
+type Shader[T any] interface {
 	Vertex(Vertex) Vertex
-	Fragment(Vertex) Color
+	Fragment(Vertex) T
 }
 
 // SolidColorShader renders with a single, solid color.
@@ -93,4 +93,40 @@ func (shader *PhongShader) Fragment(v Vertex) Color {
 		}
 	}
 	return color.Mul(light).Min(White).Alpha(color.A)
+}
+
+type NormalShader struct {
+	Matrix Matrix
+}
+
+func NewNormalShader(matrix Matrix) *NormalShader {
+	return &NormalShader{matrix}
+}
+
+func (shader *NormalShader) Vertex(v Vertex) Vertex {
+	v.Output = shader.Matrix.MulPositionW(v.Position)
+	return v
+}
+
+func (shader *NormalShader) Fragment(v Vertex) Color {
+	return Color{R: v.Normal.X, G: v.Normal.Y, B: v.Normal.Z, A: 1}
+}
+
+type ZeroShader[T any] struct {
+	Matrix Matrix
+	zero   T
+}
+
+func NewZeroShader[T any](matrix Matrix) *ZeroShader[T] {
+	var zero T
+	return &ZeroShader[T]{matrix, zero}
+}
+
+func (shader *ZeroShader[T]) Vertex(v Vertex) Vertex {
+	v.Output = shader.Matrix.MulPositionW(v.Position)
+	return v
+}
+
+func (shader *ZeroShader[T]) Fragment(v Vertex) T {
+	return shader.zero
 }

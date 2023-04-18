@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"math/rand"
 	"time"
 
@@ -165,14 +167,104 @@ func (pipe *Pipe) GetMesh() *Mesh {
 	return mesh
 }
 
+type CustomPixel struct {
+	Normal Vector
+	Color  Color
+}
+
+type CustomBuffer struct {
+	Height int
+	Width  int
+	Buffer []CustomPixel
+}
+
+func NewCustomBuffer(width, height int) *CustomBuffer {
+	b := &CustomBuffer{}
+
+	b.Width = width
+	b.Height = height
+	b.Buffer = make([]CustomPixel, width*height)
+
+	return b
+}
+
+func (b *CustomBuffer) Clear(color CustomPixel) {
+	for y := 0; y < b.Height; y++ {
+		i := y * b.Width
+		for x := 0; x < b.Width; x++ {
+			b.Buffer[i] = color
+			i += 1
+		}
+	}
+}
+
+func (b *CustomBuffer) Write(x, y int, color CustomPixel) {
+	b.Buffer[y*b.Width+x] = color
+}
+
+func (b *CustomBuffer) Dimensions() (int, int) {
+	return b.Width, b.Height
+}
+
+func (b *CustomBuffer) ColorImage() image.Image {
+	im := image.NewNRGBA(image.Rect(0, 0, b.Width, b.Height))
+
+	for y := 0; y < b.Height; y++ {
+		i := y * b.Width
+		for x := 0; x < b.Width; x++ {
+			im.Set(x, y, b.Buffer[i].Color.NRGBA())
+			i += 1
+		}
+	}
+
+	return im
+}
+
+func (b *CustomBuffer) NormalImage() image.Image {
+	im := image.NewNRGBA(image.Rect(0, 0, b.Width, b.Height))
+
+	const d = 0xff
+	for y := 0; y < b.Height; y++ {
+		i := y * b.Width
+		for x := 0; x < b.Width; x++ {
+			v := b.Buffer[i].Normal
+
+			r := Clamp(v.X, 0, 1)
+			g := Clamp(v.Y, 0, 1)
+			b := Clamp(v.Z, 0, 1)
+			im.Set(x, y, color.NRGBA{uint8(r * d), uint8(g * d), uint8(b * d), uint8(d)})
+			i += 1
+		}
+	}
+
+	return im
+}
+
+type CustomShader struct {
+	Matrix Matrix
+}
+
+func NewCustomShader(matrix Matrix) *CustomShader {
+	return &CustomShader{matrix}
+}
+
+func (shader *CustomShader) Vertex(v Vertex) Vertex {
+	v.Output = shader.Matrix.MulPositionW(v.Position)
+	return v
+}
+
+func (shader *CustomShader) Fragment(v Vertex) CustomPixel {
+	return CustomPixel{Normal: v.Normal, Color: Color{R: 1, G: 1, B: 0, A: 1}}
+}
+
 func main() {
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
-	buffer := NewImageBuffer(width*scale, height*scale)
-	context := NewContext[*ImageBuffer, Color](buffer)
-	context.ClearColor = Black
-	context.Shader = NewNormalShader(matrix)
+	buffer := NewCustomBuffer(width*scale, height*scale)
+	context := NewContext[*CustomBuffer, CustomPixel](buffer)
+	context.ClearColor = CustomPixel{Color: Black}
+	context.Shader = NewCustomShader(matrix)
 
 	grid := NewGrid(19, 11, 11)
 	pipes := make([]*Pipe, 8)
@@ -228,7 +320,8 @@ func main() {
 	context.DrawMesh(mesh)
 	fmt.Println(time.Since(start))
 
-	image := context.ColorBuffer.ToImage()
-
-	SavePNG("out.png", image)
+	normalImage := context.ColorBuffer.NormalImage()
+	colorImage := context.ColorBuffer.ColorImage()
+	SavePNG("out_normal.png", normalImage)
+	SavePNG("out_color.png", colorImage)
 }
