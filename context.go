@@ -229,8 +229,14 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			info.TotalPixels++
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
 			bz := z + dc.DepthBias
-			if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
-				continue
+			lock := &dc.locks[(x+y)&255]
+			if dc.ReadDepth {
+				lock.Lock()
+				depth := dc.DepthBuffer[i]
+				lock.Unlock()
+				if bz > depth {
+					continue
+				}
 			}
 			// perspective-correct interpolation of vertex data
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
@@ -242,7 +248,6 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 				continue
 			}
 			// update buffers atomically
-			lock := &dc.locks[(x+y)&255]
 			lock.Lock()
 			// check depth buffer again
 			if bz <= dc.DepthBuffer[i] || !dc.ReadDepth {
