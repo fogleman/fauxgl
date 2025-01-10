@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kingpin "github.com/alecthomas/kingpin/v2"
 	. "github.com/fogleman/fauxgl"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

@@ -40,7 +40,7 @@ func (info RasterizeInfo) Add(other RasterizeInfo) RasterizeInfo {
 type Context struct {
 	Width        int
 	Height       int
-	ColorBuffer  *image.NRGBA
+	ColorBuffer  []Color
 	DepthBuffer  []float64
 	ClearColor   Color
 	Shader       Shader
@@ -61,7 +61,7 @@ func NewContext(width, height int) *Context {
 	dc := &Context{}
 	dc.Width = width
 	dc.Height = height
-	dc.ColorBuffer = image.NewNRGBA(image.Rect(0, 0, width, height))
+	dc.ColorBuffer = make([]Color, width*height)
 	dc.DepthBuffer = make([]float64, width*height)
 	dc.ClearColor = Transparent
 	dc.Shader = NewSolidColorShader(Identity(), Color{1, 0, 1, 1})
@@ -80,8 +80,27 @@ func NewContext(width, height int) *Context {
 	return dc
 }
 
+func (dc *Context) Buffer() []Color {
+	buf := make([]Color, len(dc.ColorBuffer))
+	copy(buf, dc.ColorBuffer)
+	return buf
+}
+
 func (dc *Context) Image() image.Image {
-	return dc.ColorBuffer
+	im := image.NewRGBA64(image.Rect(0, 0, dc.Width, dc.Height))
+	var i int
+	for y := 0; y < dc.Height; y++ {
+		for x := 0; x < dc.Width; x++ {
+			c := dc.ColorBuffer[i]
+			r := uint16(c.R * 0xffff)
+			g := uint16(c.G * 0xffff)
+			b := uint16(c.B * 0xffff)
+			a := uint16(c.A * 0xffff)
+			im.SetRGBA64(x, y, color.RGBA64{r, g, b, a})
+			i++
+		}
+	}
+	return im
 }
 
 func (dc *Context) DepthImage() image.Image {
@@ -117,15 +136,11 @@ func (dc *Context) DepthImage() image.Image {
 }
 
 func (dc *Context) ClearColorBufferWith(color Color) {
-	c := color.NRGBA()
+	var i int
 	for y := 0; y < dc.Height; y++ {
-		i := dc.ColorBuffer.PixOffset(0, y)
 		for x := 0; x < dc.Width; x++ {
-			dc.ColorBuffer.Pix[i+0] = c.R
-			dc.ColorBuffer.Pix[i+1] = c.G
-			dc.ColorBuffer.Pix[i+2] = c.B
-			dc.ColorBuffer.Pix[i+3] = c.A
-			i += 4
+			dc.ColorBuffer[i] = color
+			i++
 		}
 	}
 }
@@ -196,7 +211,7 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			d = d2
 		}
 		d = float64(int(d))
-		if d < 0 {
+		if x0+int(d) < 0 {
 			// occurs in pathological cases
 			d = 0
 		}
@@ -256,19 +271,14 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 				if dc.WriteColor {
 					// update color buffer
 					if dc.AlphaBlend && color.A < 1 {
-						sr, sg, sb, sa := color.NRGBA().RGBA()
-						a := (0xffff - sa) * 0x101
-						j := dc.ColorBuffer.PixOffset(x, y)
-						dr := &dc.ColorBuffer.Pix[j+0]
-						dg := &dc.ColorBuffer.Pix[j+1]
-						db := &dc.ColorBuffer.Pix[j+2]
-						da := &dc.ColorBuffer.Pix[j+3]
-						*dr = uint8((uint32(*dr)*a/0xffff + sr) >> 8)
-						*dg = uint8((uint32(*dg)*a/0xffff + sg) >> 8)
-						*db = uint8((uint32(*db)*a/0xffff + sb) >> 8)
-						*da = uint8((uint32(*da)*a/0xffff + sa) >> 8)
+						a := 1 - color.A
+						d := dc.ColorBuffer[i]
+						d.R = (d.R*a + color.R*color.A)
+						d.G = (d.G*a + color.G*color.A)
+						d.B = (d.B*a + color.B*color.A)
+						d.A = (d.A*a + color.A)
 					} else {
-						dc.ColorBuffer.SetNRGBA(x, y, color.NRGBA())
+						dc.ColorBuffer[i] = color
 					}
 				}
 			}

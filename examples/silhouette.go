@@ -13,13 +13,13 @@ const (
 	scale  = 2
 	width  = 1600
 	height = 1600
-	fovy   = 100
-	near   = 0.01
-	far    = 10
+	fovy   = 1.2
+	near   = 90
+	far    = 500
 )
 
 var (
-	eye    = V(0, -1.1, 0)
+	eye    = V(100, -100, 50)
 	center = V(0, 0, 0)
 	up     = V(0, 0, 1)
 )
@@ -32,51 +32,6 @@ func timed(name string) func() {
 	return func() {
 		// fmt.Println(time.Since(start))
 	}
-}
-
-func fineTriangle(buf []*Triangle, t *Triangle, threshold float64) []*Triangle {
-	v1 := t.V1
-	v2 := t.V2
-	v3 := t.V3
-	p1 := v1.Position
-	p2 := v2.Position
-	p3 := v3.Position
-	d12 := p1.Distance(p2)
-	d23 := p2.Distance(p3)
-	d31 := p3.Distance(p1)
-	max := math.Max(d12, math.Max(d23, d31))
-	if max <= threshold {
-		buf = append(buf, t)
-		return buf
-	}
-	if d12 == max {
-		v := InterpolateVertexes(v1, v2, v3, VectorW{0.5, 0.5, 0, 1})
-		t1 := NewTriangle(v3, v1, v)
-		t2 := NewTriangle(v2, v3, v)
-		buf = fineTriangle(buf, t1, threshold)
-		buf = fineTriangle(buf, t2, threshold)
-	} else if d23 == max {
-		v := InterpolateVertexes(v1, v2, v3, VectorW{0, 0.5, 0.5, 1})
-		t1 := NewTriangle(v1, v2, v)
-		t2 := NewTriangle(v3, v1, v)
-		buf = fineTriangle(buf, t1, threshold)
-		buf = fineTriangle(buf, t2, threshold)
-	} else {
-		v := InterpolateVertexes(v1, v2, v3, VectorW{0.5, 0, 0.5, 1})
-		t1 := NewTriangle(v2, v3, v)
-		t2 := NewTriangle(v1, v2, v)
-		buf = fineTriangle(buf, t1, threshold)
-		buf = fineTriangle(buf, t2, threshold)
-	}
-	return buf
-}
-
-func fineMesh(mesh *Mesh, threshold float64) *Mesh {
-	var triangles []*Triangle
-	for _, t := range mesh.Triangles {
-		triangles = fineTriangle(triangles, t, threshold)
-	}
-	return NewTriangleMesh(triangles)
 }
 
 type Edge struct {
@@ -103,7 +58,7 @@ func sharpEdges(mesh *Mesh) *Mesh {
 		for _, e := range []Edge{e1, e2, e3} {
 			if u, ok := other[e]; ok {
 				a := math.Acos(t.Normal().Dot(u.Normal()))
-				if a > Radians(60) {
+				if a > Radians(45) {
 					lines = append(lines, NewLineForPoints(e.A, e.B))
 				}
 			}
@@ -132,7 +87,8 @@ func main() {
 	done()
 
 	// fmt.Println(len(mesh.Triangles))
-	mesh = fineMesh(mesh, 0.01/3)
+	// mesh = fineMesh(mesh, 0.5)
+	mesh.SplitTriangles(0.02)
 	// fmt.Println(len(mesh.Triangles))
 
 	// create a rendering context
@@ -151,12 +107,27 @@ func main() {
 	done()
 
 	context.ClearColorBufferWith(White)
-	context.DepthBias = -1e-5
+	context.DepthBias = -1e-4
 
 	done = timed("rendering mesh")
 
-	// context.Shader = NewSolidColorShader(matrix, Color{1, 0, 0, 1})
+	context.Shader = NewSolidColorShader(matrix, Black)
 	// context.DrawMesh(sharpEdges(mesh))
+	for _, line := range sharpEdges(mesh).Lines {
+		info := context.DrawLine(line)
+		ratio := float64(info.UpdatedPixels) / float64(info.TotalPixels)
+		if ratio < 0.666 {
+			continue
+		}
+		v1 := matrix.MulPositionW(line.V1.Position)
+		v1 = v1.DivScalar(v1.W)
+		v2 := matrix.MulPositionW(line.V2.Position)
+		v2 = v2.DivScalar(v2.W)
+		if math.IsNaN(v1.X) || math.IsNaN(v2.X) {
+			continue
+		}
+		fmt.Printf("%g,%g %g,%g\n", v1.X*aspect, v1.Y, v2.X*aspect, v2.Y)
+	}
 
 	context.Shader = NewSolidColorShader(matrix, Black)
 	// context.DrawMesh(mesh.Silhouette(eye, 1e-3))

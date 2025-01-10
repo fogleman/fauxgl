@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	. "github.com/fogleman/fauxgl"
@@ -9,32 +10,35 @@ import (
 )
 
 const (
-	scale  = 4
-	width  = 1024
-	height = 1024
-	fovy   = 30
+	scale  = 2
+	width  = 6480
+	height = 6480
+	fovy   = 50
 	near   = 1
 	far    = 10
 )
 
 var (
-	eye    = V(3, 1, 0.5)
-	center = V(0, -0.1, 0)
+	eye    = V(2, 2, 1.5)
+	center = V(0, 0, 0)
 	up     = V(0, 0, 1)
+	light  = V(1, 2, 3).Normalize()
+	color  = HexColor("#888888")
 )
 
 func main() {
 	// load a mesh
-	mesh, err := LoadSTL("examples/bowser.stl")
+	mesh, err := LoadMesh(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 
 	// fit mesh in a bi-unit cube centered at the origin
 	mesh.BiUnitCube()
+	mesh.Transform(Rotate(up, -2))
 
 	// smooth the normals
-	mesh.SmoothNormalsThreshold(Radians(30))
+	mesh.SmoothNormalsThreshold(Radians(20))
 
 	// create a rendering context
 	context := NewContext(width*scale, height*scale)
@@ -43,11 +47,11 @@ func main() {
 	// create transformation matrix and light direction
 	aspect := float64(width) / float64(height)
 	matrix := LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
-	light := V(0.75, 0.25, 1).Normalize()
+	// light := V(0.75, 0.25, 1).Normalize()
 
 	// render
 	shader := NewPhongShader(matrix, light, eye)
-	shader.ObjectColor = HexColor("FFD34E")
+	shader.ObjectColor = color
 	shader.DiffuseColor = Gray(0.9)
 	shader.SpecularColor = Gray(0.25)
 	shader.SpecularPower = 100

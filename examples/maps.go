@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
 	"math"
 	"os"
 
@@ -28,26 +25,14 @@ var (
 	up     = V(0, -1, 0)
 )
 
-func toGray(im image.Image) *image.Gray {
-	dst := image.NewGray(im.Bounds())
-	draw.Draw(dst, im.Bounds(), im, image.ZP, draw.Src)
-	return dst
-}
-
-func toRGBA(im image.Image) *image.RGBA {
-	dst := image.NewRGBA(im.Bounds())
-	draw.Draw(dst, im.Bounds(), im, image.ZP, draw.Src)
-	return dst
-}
-
 type MapShader struct {
 	Mode      int
 	Matrix    Matrix
 	Z0, Z1    float64
-	HeightMap *image.Gray
+	HeightMap []Color
 }
 
-func NewMapShader(mode int, matrix Matrix, z0, z1 float64, heightmap *image.Gray) *MapShader {
+func NewMapShader(mode int, matrix Matrix, z0, z1 float64, heightmap []Color) *MapShader {
 	return &MapShader{mode, matrix, z0, z1, heightmap}
 }
 
@@ -61,10 +46,9 @@ func (shader *MapShader) Fragment(v Vertex) Color {
 	t := (z - shader.Z0) / (shader.Z1 - shader.Z0)
 	t = Clamp(t, 0, 1)
 
-	if shader.HeightMap != nil {
-		p := shader.HeightMap.GrayAt(v.X, v.Y).Y
-		u := float64(p+1) / 255
-		if u >= t {
+	if len(shader.HeightMap) > 0 {
+		u := shader.HeightMap[v.Y*width+v.X]
+		if u.R >= t {
 			return Discard
 		}
 	}
@@ -83,29 +67,27 @@ func (shader *MapShader) Fragment(v Vertex) Color {
 	return Color{t, t, t, 1}
 }
 
-func updateHeightMap(heightMap, update *image.Gray) *image.Gray {
-	if heightMap == nil {
+func updateHeightMap(heightMap, update []Color) []Color {
+	if len(heightMap) == 0 {
 		return update
 	}
-	for i := range heightMap.Pix {
-		if update.Pix[i] > heightMap.Pix[i] {
-			heightMap.Pix[i] = update.Pix[i]
+	for i := range heightMap {
+		if update[i].R > heightMap[i].R {
+			heightMap[i] = update[i]
 		}
 	}
 	return heightMap
 }
 
-func computeCurvatureMap(heightMap *image.RGBA, normalMap *image.RGBA, z0, z1, xyScale float64) *image.RGBA {
-	size := heightMap.Bounds().Size()
-	w := size.X
-	h := size.Y
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) []Color {
 	const c0 = -0.05
 	const c1 = 0.05
-	for py := 0; py < h; py++ {
-		for px := 0; px < w; px++ {
-			hm := heightMap.RGBAAt(px, py)
-			nm := normalMap.RGBAAt(px, py)
+	result := make([]Color, len(heightMap))
+	for py := 0; py < height; py++ {
+		for px := 0; px < width; px++ {
+			i := py*width + px
+			hm := heightMap[i]
+			nm := normalMap[i]
 
 			if hm.A == 0 {
 				continue
@@ -113,37 +95,41 @@ func computeCurvatureMap(heightMap *image.RGBA, normalMap *image.RGBA, z0, z1, x
 
 			x := float64(px) * xyScale
 			y := float64(py) * xyScale
-			z := z0 + (z1-z0)*(float64(hm.R)/255)
+			z := z0 + (z1-z0)*hm.R
 			p := Vector{x, y, z}
 
-			nx := (float64(nm.R)/255)*2 - 1
-			ny := (float64(nm.G)/255)*2 - 1
-			nz := (float64(nm.B)/255)*2 - 1
+			nx := nm.R*2 - 1
+			ny := nm.G*2 - 1
+			nz := nm.B*2 - 1
 			n := Vector{nx, ny, nz}.Normalize()
 
 			m := RotateTo(Vector{0, 0, -1}, n)
 
 			var sum float64
+			var total float64
 			for i := 0; i < 32; i++ {
 				a := float64(i) / 32 * 2 * math.Pi
 				dir := Vector{math.Cos(a), math.Sin(a), 0}
 				s := m.MulDirection(dir).MulScalar(5 * xyScale).Add(p)
 				sx := int(math.Round(s.X / xyScale))
 				sy := int(math.Round(s.Y / xyScale))
-				sz := z0 + (z1-z0)*(float64(heightMap.RGBAAt(sx, sy).R)/255)
+				c := heightMap[sy*width+sx]
+				if c.A == 0 {
+					continue
+				}
+				sz := z0 + (z1-z0)*c.R
 				q := Vector{float64(sx) * xyScale, float64(sy) * xyScale, sz}
 				d := n.Dot(q.Sub(p))
 				sum += d
-
+				total++
 			}
-			meanDistance := sum / 32
+			meanDistance := sum / total
 			t := (meanDistance - c0) / (c1 - c0)
 			t = Clamp(t, 0, 1)
-			c := uint8(math.Round(t * 255))
-			dst.SetRGBA(px, py, color.RGBA{c, c, c, 255})
+			result[i] = Color{t, t, t, 1}
 		}
 	}
-	return dst
+	return result
 }
 
 func run(inputPath string) error {
@@ -165,7 +151,7 @@ func run(inputPath string) error {
 
 	context := NewContext(width, height)
 
-	var prevHeightMap *image.Gray
+	var prevHeightMap []Color
 
 	for i := 0; i < 5; i++ {
 		context.ClearDepthBuffer()
@@ -174,7 +160,7 @@ func run(inputPath string) error {
 		context.DrawMesh(mesh)
 		SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
 
-		normalMap := toRGBA(context.Image())
+		normalMap := context.Buffer()
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
@@ -188,12 +174,13 @@ func run(inputPath string) error {
 		context.DrawMesh(mesh)
 		SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
 
-		heightMap := toRGBA(context.Image())
+		heightMap := context.Buffer()
 
 		curvatureMap := computeCurvatureMap(heightMap, normalMap, z0, z1, xyScale)
-		SavePNG(fmt.Sprintf("curvature-%02d.png", i), curvatureMap)
+		context.ColorBuffer = curvatureMap
+		SavePNG(fmt.Sprintf("curvature-%02d.png", i), context.Image())
 
-		prevHeightMap = updateHeightMap(prevHeightMap, toGray(heightMap))
+		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
 
 	return nil
