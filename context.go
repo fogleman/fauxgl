@@ -236,6 +236,8 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
 			b.W = 1 / (b.X + b.Y + b.Z)
 			v := InterpolateVertexes(v0, v1, v2, b)
+			v.X = x
+			v.Y = y
 			// invoke fragment shader
 			color := dc.Shader.Fragment(v)
 			if color == Discard {

@@ -9,6 +9,7 @@ type Vertex struct {
 	// Vectors  []Vector
 	// Colors   []Color
 	// Floats   []float64
+	X, Y int
 }
 
 func (a Vertex) Outside() bool {
