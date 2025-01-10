@@ -2,11 +2,17 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"math"
 	"os"
 
+	"github.com/fogleman/colormap"
+
 	. "github.com/fogleman/fauxgl"
 )
+
+var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
 const (
 	width  = 1600
@@ -89,7 +95,7 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 			hm := heightMap[i]
 			nm := normalMap[i]
 
-			if hm.A == 0 {
+			if nm.A == 0 {
 				continue
 			}
 
@@ -120,16 +126,56 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 				sz := z0 + (z1-z0)*c.R
 				q := Vector{float64(sx) * xyScale, float64(sy) * xyScale, sz}
 				d := n.Dot(q.Sub(p))
+				if d > 0.1 {
+					continue
+				}
 				sum += d
 				total++
 			}
 			meanDistance := sum / total
-			t := (meanDistance - c0) / (c1 - c0)
-			t = Clamp(t, 0, 1)
-			result[i] = Color{t, t, t, 1}
+			t := meanDistance
+			result[i] = Color{t, t, t, nm.A}
 		}
 	}
+	min := result[0].R
+	max := result[0].R
+	for _, c := range result {
+		if c.R < min {
+			min = c.R
+		}
+		if c.R > max {
+			max = c.R
+		}
+	}
+	if math.Abs(min) > math.Abs(max) {
+		max = -min
+	} else {
+		min = -max
+	}
+	for i := range result {
+		c := result[i]
+		result[i] = result[i].SubScalar(min).DivScalar(max - min)
+		result[i].A = c.A
+	}
 	return result
+}
+
+func makeImage(buf []Color) *image.RGBA64 {
+	im := image.NewRGBA64(image.Rect(0, 0, width, height))
+	var i int
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			c := buf[i]
+			d := palette.At(buf[i].R)
+			r, g, b, a := d.RGBA()
+			e := color.NRGBA64{uint16(r), uint16(g), uint16(b), uint16(a)}
+			e.A = uint16(c.A * 0xffff)
+			// d.A = uint16(c.A * 0xffff)
+			im.Set(x, y, e)
+			i++
+		}
+	}
+	return im
 }
 
 func run(inputPath string) error {
@@ -177,8 +223,7 @@ func run(inputPath string) error {
 		heightMap := context.Buffer()
 
 		curvatureMap := computeCurvatureMap(heightMap, normalMap, z0, z1, xyScale)
-		context.ColorBuffer = curvatureMap
-		SavePNG(fmt.Sprintf("curvature-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("curvature-%02d.png", i), makeImage(curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
