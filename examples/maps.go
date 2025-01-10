@@ -5,7 +5,9 @@ import (
 	"image"
 	"image/color"
 	"math"
+
 	"os"
+	"path/filepath"
 
 	"github.com/fogleman/colormap"
 
@@ -15,8 +17,8 @@ import (
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
 const (
-	width  = 1600
-	height = 1200
+	width  = 4000 / 2
+	height = 3000 / 2
 )
 
 const (
@@ -113,12 +115,15 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 
 			var sum float64
 			var total float64
-			for i := 0; i < 32; i++ {
-				a := float64(i) / 32 * 2 * math.Pi
+			for i := 0; i < 64; i++ {
+				a := float64(i) / 64 * 2 * math.Pi
 				dir := Vector{math.Cos(a), math.Sin(a), 0}
-				s := m.MulDirection(dir).MulScalar(5 * xyScale).Add(p)
+				s := m.MulDirection(dir).MulScalar(16 / 2 * xyScale).Add(p)
 				sx := int(math.Round(s.X / xyScale))
 				sy := int(math.Round(s.Y / xyScale))
+				if sx < 0 || sy < 0 || sx >= width || sy >= height {
+					continue
+				}
 				c := heightMap[sy*width+sx]
 				if c.A == 0 {
 					continue
@@ -126,9 +131,9 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 				sz := z0 + (z1-z0)*c.R
 				q := Vector{float64(sx) * xyScale, float64(sy) * xyScale, sz}
 				d := n.Dot(q.Sub(p))
-				if d > 0.1 {
-					continue
-				}
+				// if d > 0.1 {
+				// 	continue
+				// }
 				sum += d
 				total++
 			}
@@ -148,10 +153,13 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 		}
 	}
 	if math.Abs(min) > math.Abs(max) {
-		max = -min
-	} else {
+		// max = -min
 		min = -max
+	} else {
+		// min = -max
+		max = -min
 	}
+	fmt.Println(min, max)
 	for i := range result {
 		c := result[i]
 		result[i] = result[i].SubScalar(min).DivScalar(max - min)
@@ -185,6 +193,7 @@ func run(inputPath string) error {
 	}
 
 	mesh.BiUnitCube()
+	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
 	mesh.SmoothNormalsThreshold(Radians(30))
 	box := mesh.BoundingBox()
 	z0 := box.Min.Z
@@ -199,12 +208,12 @@ func run(inputPath string) error {
 
 	var prevHeightMap []Color
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeNormal, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
+		// SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
 
 		normalMap := context.Buffer()
 
@@ -212,26 +221,31 @@ func run(inputPath string) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeAngle, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("angle-%02d.png", i), context.Image())
+		// SavePNG(fmt.Sprintf("angle-%02d.png", i), context.Image())
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeHeight, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
+		// SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
 
 		heightMap := context.Buffer()
 
 		curvatureMap := computeCurvatureMap(heightMap, normalMap, z0, z1, xyScale)
-		SavePNG(fmt.Sprintf("curvature-%02d.png", i), makeImage(curvatureMap))
+		// SavePNG(fmt.Sprintf("curvature-%02d.png", i), makeImage(curvatureMap))
+		path := fmt.Sprintf("%s-%02d.png", filepath.Base(inputPath), i)
+		SavePNG(path, makeImage(curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
+		// break
 	}
 
 	return nil
 }
 
 func main() {
-	inputPath := os.Args[1]
-	run(inputPath)
+	for _, path := range os.Args[1:] {
+		fmt.Println(path)
+		run(path)
+	}
 }
