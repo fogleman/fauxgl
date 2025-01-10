@@ -195,6 +195,9 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 		if w02 < 0 && d2 > d {
 			d = d2
 		}
+		if d == math.Inf(1) {
+			d = 0
+		}
 		d = float64(int(d))
 		if d < 0 {
 			// occurs in pathological cases
