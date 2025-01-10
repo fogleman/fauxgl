@@ -133,6 +133,10 @@ func (a Vector) DivScalar(b float64) Vector {
 	return Vector{a.X / b, a.Y / b, a.Z / b}
 }
 
+func (a Vector) PowScalar(b float64) Vector {
+	return Vector{math.Pow(a.X, b), math.Pow(a.Y, b), math.Pow(a.Z, b)}
+}
+
 func (a Vector) Min(b Vector) Vector {
 	return Vector{math.Min(a.X, b.X), math.Min(a.Y, b.Y), math.Min(a.Z, b.Z)}
 }
