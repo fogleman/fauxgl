@@ -17,8 +17,11 @@ import (
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
 const (
-	width  = 2048
+	width  = 1024
 	height = 1024
+
+	curvatureSamplingRadius = 1
+	gamma                   = 0.8
 )
 
 const (
@@ -95,11 +98,14 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 	p1 := matrix.MulPosition(Vector{1, 0, 0})
 	px_per_mm := p0.Distance(p1) * width / 2
 
-	const curvatureSamplingRadius = 0.2
 	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius * px_per_mm))
 
 	for py := 0; py < height; py++ {
 		for px := 0; px < width; px++ {
+			// if px%20 != 0 || py%20 != 0 {
+			// 	continue
+			// }
+
 			i := py*width + px
 			hm := heightMap[i]
 			nm := normalMap[i]
@@ -129,6 +135,8 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 				if sx < 0 || sy < 0 || sx >= width || sy >= height {
 					continue
 				}
+				// result[sy*width+sx] = Color{1, 0, 0, 1}
+				// continue
 				hm := heightMap[sy*width+sx]
 				q := inverse.MulPosition(Vector{
 					float64(sx)/(width-1)*2 - 1,
@@ -142,6 +150,9 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 				t := d / curvatureSamplingRadius
 				t = math.Max(t, -1)
 				t = math.Min(t, 1)
+				if hm.A != 0 && q.Z < p.Z-curvatureSamplingRadius*1 {
+					t = 0
+				}
 				sum += t
 				total++
 			}
@@ -167,7 +178,7 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 		min = -max
 	}
 	// min, max = min/2, max/2
-	const gamma = 1
+	min, max = -1, 1
 	for i := range result {
 		c := result[i]
 		t := (c.R-min)/(max-min)*2 - 1
@@ -204,16 +215,18 @@ func run(inputPath string) error {
 		return err
 	}
 
+	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
+	mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
 	mesh.MoveTo(Vector{}, Vector{0.5, 0.5, 0})
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
-	mesh.Transform(Rotate(Vector{1, 0, 0}, math.Pi/2))
-	// mesh.SmoothNormalsThreshold(Radians(20))
+	// mesh.SmoothNormalsThreshold(Radians(40))
 	box := mesh.BoundingBox()
+	fmt.Println(box.Size())
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
-	const s = 16
 	aspect := float64(width) / height
+	s := math.Max(box.Size().X*aspect, box.Size().Y) / 2 * 1.1
 	// xyScale := float64(s*2) / height
 	matrix := LookAt(eye, center, up).Orthographic(-s*aspect, s*aspect, -s, s, z0, z1)
 
@@ -221,12 +234,12 @@ func run(inputPath string) error {
 
 	var prevHeightMap []Color
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeNormal, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("%s-normal.png", filepath.Base(inputPath)), context.Image())
 
 		normalMap := context.Buffer()
 
@@ -234,20 +247,18 @@ func run(inputPath string) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeAngle, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("angle-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeHeight, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("%s-height.png", filepath.Base(inputPath)), context.Image())
 
 		heightMap := context.Buffer()
 
 		curvatureMap := computeCurvatureMap(heightMap, normalMap, matrix)
-		// SavePNG(fmt.Sprintf("curvature-%02d.png", i), makeImage(curvatureMap))
-		path := fmt.Sprintf("%s-%02d.png", filepath.Base(inputPath), i)
-		SavePNG(path, makeImage(curvatureMap))
+		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 		// break
