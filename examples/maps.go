@@ -20,8 +20,8 @@ const (
 	width  = 1024
 	height = 1024
 
-	curvatureSamplingRadius = 1
-	gamma                   = 0.8
+	curvatureSamplingRadius = 0.2
+	gamma                   = 1
 )
 
 const (
@@ -146,12 +146,14 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 				d := n.Dot(q.Sub(p))
 				if hm.A == 0 {
 					d = -curvatureSamplingRadius
+					total++
 				}
 				t := d / curvatureSamplingRadius
 				t = math.Max(t, -1)
 				t = math.Min(t, 1)
 				if hm.A != 0 && q.Z < p.Z-curvatureSamplingRadius*1 {
 					t = 0
+					total++
 				}
 				sum += t
 				total++
@@ -216,7 +218,7 @@ func run(inputPath string) error {
 	}
 
 	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
-	mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
+	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
 	mesh.MoveTo(Vector{}, Vector{0.5, 0.5, 0})
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
 	// mesh.SmoothNormalsThreshold(Radians(40))
