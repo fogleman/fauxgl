@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	eye    = V(0, 0, -1)
+	eye    = V(0, 0, -10)
 	center = V(0, 0, 0)
 	up     = V(0, -1, 0)
 )
@@ -63,6 +63,7 @@ func (shader *MapShader) Fragment(v Vertex) Color {
 
 	if shader.Mode == modeNormal {
 		n := v.Normal
+		// n.Z = -n.Z
 		n = n.AddScalar(1).DivScalar(2)
 		return Color{n.X, n.Y, n.Z, 1}
 	}
@@ -87,7 +88,8 @@ func updateHeightMap(heightMap, update []Color) []Color {
 	return heightMap
 }
 
-func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) []Color {
+func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
+	inverse := matrix.Inverse()
 	const c0 = -0.05
 	const c1 = 0.05
 	result := make([]Color, len(heightMap))
@@ -101,10 +103,11 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 				continue
 			}
 
-			x := float64(px) * xyScale
-			y := float64(py) * xyScale
-			z := z0 + (z1-z0)*hm.R
-			p := Vector{x, y, z}
+			p := inverse.MulPosition(Vector{
+				float64(px)/(width-1)*2 - 1,
+				float64(py)/(height-1)*2 - 1,
+				hm.R,
+			})
 
 			nx := nm.R*2 - 1
 			ny := nm.G*2 - 1
@@ -118,9 +121,9 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 			for i := 0; i < 64; i++ {
 				a := float64(i) / 64 * 2 * math.Pi
 				dir := Vector{math.Cos(a), math.Sin(a), 0}
-				s := m.MulDirection(dir).MulScalar(16 / 2 * xyScale).Add(p)
-				sx := int(math.Round(s.X / xyScale))
-				sy := int(math.Round(s.Y / xyScale))
+				s := matrix.MulPosition(p.Add(m.MulDirection(dir).MulScalar(0.25)))
+				sx := int(math.Round((s.X + 1) / 2 * width))
+				sy := int(math.Round((s.Y + 1) / 2 * height))
 				if sx < 0 || sy < 0 || sx >= width || sy >= height {
 					continue
 				}
@@ -128,9 +131,15 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 				if c.A == 0 {
 					continue
 				}
-				sz := z0 + (z1-z0)*c.R
-				q := Vector{float64(sx) * xyScale, float64(sy) * xyScale, sz}
+				q := inverse.MulPosition(Vector{
+					float64(sx)/(width-1)*2 - 1,
+					float64(sy)/(height-1)*2 - 1,
+					c.R,
+				})
 				d := n.Dot(q.Sub(p))
+				if math.Abs(q.Z-p.Z) > 0.25 {
+					continue
+				}
 				// if d > 0.1 {
 				// 	continue
 				// }
@@ -142,6 +151,7 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 			result[i] = Color{t, t, t, nm.A}
 		}
 	}
+
 	min := result[0].R
 	max := result[0].R
 	for _, c := range result {
@@ -153,11 +163,11 @@ func computeCurvatureMap(heightMap, normalMap []Color, z0, z1, xyScale float64) 
 		}
 	}
 	if math.Abs(min) > math.Abs(max) {
-		// max = -min
-		min = -max
-	} else {
-		// min = -max
 		max = -min
+		// min = -max
+	} else {
+		min = -max
+		// max = -min
 	}
 	fmt.Println(min, max)
 	for i := range result {
@@ -175,10 +185,8 @@ func makeImage(buf []Color) *image.RGBA64 {
 		for x := 0; x < width; x++ {
 			c := buf[i]
 			d := palette.At(buf[i].R)
-			r, g, b, a := d.RGBA()
-			e := color.NRGBA64{uint16(r), uint16(g), uint16(b), uint16(a)}
-			e.A = uint16(c.A * 0xffff)
-			// d.A = uint16(c.A * 0xffff)
+			r, g, b, _ := d.RGBA()
+			e := color.NRGBA64{uint16(r), uint16(g), uint16(b), uint16(c.A * 0xffff)}
 			im.Set(x, y, e)
 			i++
 		}
@@ -192,17 +200,17 @@ func run(inputPath string) error {
 		return err
 	}
 
-	mesh.BiUnitCube()
+	mesh.MoveTo(Vector{}, Vector{0.5, 0.5, 0})
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
-	mesh.SmoothNormalsThreshold(Radians(30))
+	mesh.SmoothNormalsThreshold(Radians(20))
 	box := mesh.BoundingBox()
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
-	const s = 1
+	const s = 30
 	aspect := float64(width) / height
-	xyScale := float64(s*2) / height
-	matrix := LookAt(eye, center, up).Orthographic(-s*aspect, s*aspect, -s, s, z0-1, z1+1)
+	// xyScale := float64(s*2) / height
+	matrix := LookAt(eye, center, up).Orthographic(-s*aspect, s*aspect, -s, s, z0, z1)
 
 	context := NewContext(width, height)
 
@@ -213,7 +221,7 @@ func run(inputPath string) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeNormal, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("normal-%02d.png", i), context.Image())
 
 		normalMap := context.Buffer()
 
@@ -221,17 +229,17 @@ func run(inputPath string) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeAngle, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("angle-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("angle-%02d.png", i), context.Image())
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(modeHeight, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
+		SavePNG(fmt.Sprintf("height-%02d.png", i), context.Image())
 
 		heightMap := context.Buffer()
 
-		curvatureMap := computeCurvatureMap(heightMap, normalMap, z0, z1, xyScale)
+		curvatureMap := computeCurvatureMap(heightMap, normalMap, matrix)
 		// SavePNG(fmt.Sprintf("curvature-%02d.png", i), makeImage(curvatureMap))
 		path := fmt.Sprintf("%s-%02d.png", filepath.Base(inputPath), i)
 		SavePNG(path, makeImage(curvatureMap))
