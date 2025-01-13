@@ -17,8 +17,8 @@ import (
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
 const (
-	width  = 4000 / 2
-	height = 3000 / 2
+	width  = 2048
+	height = 1024
 )
 
 const (
@@ -28,8 +28,8 @@ const (
 )
 
 var (
-	eye    = V(0, 0, -10)
-	center = V(0, 0, 0)
+	eye    = V(0, 0, 0)
+	center = V(0, 0, 1)
 	up     = V(0, -1, 0)
 )
 
@@ -63,7 +63,6 @@ func (shader *MapShader) Fragment(v Vertex) Color {
 
 	if shader.Mode == modeNormal {
 		n := v.Normal
-		// n.Z = -n.Z
 		n = n.AddScalar(1).DivScalar(2)
 		return Color{n.X, n.Y, n.Z, 1}
 	}
@@ -89,65 +88,64 @@ func updateHeightMap(heightMap, update []Color) []Color {
 }
 
 func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
-	inverse := matrix.Inverse()
-	const c0 = -0.05
-	const c1 = 0.05
 	result := make([]Color, len(heightMap))
+	inverse := matrix.Inverse()
+
+	p0 := matrix.MulPosition(Vector{0, 0, 0})
+	p1 := matrix.MulPosition(Vector{1, 0, 0})
+	px_per_mm := p0.Distance(p1) * width / 2
+
+	const curvatureSamplingRadius = 0.2
+	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius * px_per_mm))
+
 	for py := 0; py < height; py++ {
 		for px := 0; px < width; px++ {
 			i := py*width + px
 			hm := heightMap[i]
 			nm := normalMap[i]
 
-			if nm.A == 0 {
+			if hm.A == 0 {
 				continue
 			}
 
 			p := inverse.MulPosition(Vector{
 				float64(px)/(width-1)*2 - 1,
 				float64(py)/(height-1)*2 - 1,
-				hm.R,
+				hm.R*2 - 1,
 			})
 
-			nx := nm.R*2 - 1
-			ny := nm.G*2 - 1
-			nz := nm.B*2 - 1
-			n := Vector{nx, ny, nz}.Normalize()
+			n := Vector{nm.R*2 - 1, nm.G*2 - 1, nm.B*2 - 1}.Normalize()
 
 			m := RotateTo(Vector{0, 0, -1}, n)
 
 			var sum float64
 			var total float64
-			for i := 0; i < 64; i++ {
-				a := float64(i) / 64 * 2 * math.Pi
+			for i := 0; i < curvatureSampleCount; i++ {
+				a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
 				dir := Vector{math.Cos(a), math.Sin(a), 0}
-				s := matrix.MulPosition(p.Add(m.MulDirection(dir).MulScalar(0.25)))
-				sx := int(math.Round((s.X + 1) / 2 * width))
-				sy := int(math.Round((s.Y + 1) / 2 * height))
+				offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius * px_per_mm)
+				sx := px + int(math.Round(offset.X))
+				sy := py + int(math.Round(offset.Y))
 				if sx < 0 || sy < 0 || sx >= width || sy >= height {
 					continue
 				}
-				c := heightMap[sy*width+sx]
-				if c.A == 0 {
-					continue
-				}
+				hm := heightMap[sy*width+sx]
 				q := inverse.MulPosition(Vector{
 					float64(sx)/(width-1)*2 - 1,
 					float64(sy)/(height-1)*2 - 1,
-					c.R,
+					hm.R*2 - 1,
 				})
 				d := n.Dot(q.Sub(p))
-				if math.Abs(q.Z-p.Z) > 0.25 {
-					continue
+				if hm.A == 0 {
+					d = -curvatureSamplingRadius
 				}
-				// if d > 0.1 {
-				// 	continue
-				// }
-				sum += d
+				t := d / curvatureSamplingRadius
+				t = math.Max(t, -1)
+				t = math.Min(t, 1)
+				sum += t
 				total++
 			}
-			meanDistance := sum / total
-			t := meanDistance
+			t := sum / total
 			result[i] = Color{t, t, t, nm.A}
 		}
 	}
@@ -162,18 +160,24 @@ func computeCurvatureMap(heightMap, normalMap []Color, matrix Matrix) []Color {
 			max = c.R
 		}
 	}
+	fmt.Println(min, max)
 	if math.Abs(min) > math.Abs(max) {
 		max = -min
-		// min = -max
 	} else {
 		min = -max
-		// max = -min
 	}
-	fmt.Println(min, max)
+	// min, max = min/2, max/2
+	const gamma = 1
 	for i := range result {
 		c := result[i]
-		result[i] = result[i].SubScalar(min).DivScalar(max - min)
-		result[i].A = c.A
+		t := (c.R-min)/(max-min)*2 - 1
+		if t < 0 {
+			t = -math.Pow(-t, gamma)
+		} else if t > 0 {
+			t = math.Pow(t, gamma)
+		}
+		t = (t + 1) / 2
+		result[i] = Color{t, t, t, c.A}
 	}
 	return result
 }
@@ -202,12 +206,13 @@ func run(inputPath string) error {
 
 	mesh.MoveTo(Vector{}, Vector{0.5, 0.5, 0})
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
-	mesh.SmoothNormalsThreshold(Radians(20))
+	mesh.Transform(Rotate(Vector{1, 0, 0}, math.Pi/2))
+	// mesh.SmoothNormalsThreshold(Radians(20))
 	box := mesh.BoundingBox()
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
-	const s = 30
+	const s = 16
 	aspect := float64(width) / height
 	// xyScale := float64(s*2) / height
 	matrix := LookAt(eye, center, up).Orthographic(-s*aspect, s*aspect, -s, s, z0, z1)
