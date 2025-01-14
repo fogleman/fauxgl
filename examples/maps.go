@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"runtime"
+	"sync"
 
 	"os"
 	"path/filepath"
@@ -19,8 +21,8 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 const (
 	pixelsPerMillimeter        = 10
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.75
-	curvatureGamma             = 0.6
+	curvatureSamplingRadius_mm = 2
+	curvatureGamma             = 0.8
 	frames                     = 90
 )
 
@@ -102,68 +104,85 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 
 	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius_mm * px_per_mm / 2))
 
-	for py := 0; py < height; py++ {
-		for px := 0; px < width; px++ {
-			// if px%20 != 0 || py%20 != 0 {
-			// 	continue
-			// }
-
-			i := py*width + px
-			hm := heightMap[i]
-			nm := normalMap[i]
-
-			if hm.A == 0 {
-				continue
-			}
-
-			p := inverse.MulPosition(Vector{
-				float64(px)/float64(width-1)*2 - 1,
-				float64(py)/float64(height-1)*2 - 1,
-				hm.R*2 - 1,
-			})
-
-			n := Vector{nm.R*2 - 1, nm.G*2 - 1, nm.B*2 - 1}.Normalize()
-
-			m := RotateTo(Vector{0, 0, -1}, n)
-
-			var sum float64
-			var total float64
-			for i := 0; i < curvatureSampleCount; i++ {
-				a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
-				dir := Vector{math.Cos(a), math.Sin(a), 0}
-				offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
-				sx := px + int(math.Round(offset.X))
-				sy := py + int(math.Round(offset.Y))
-				if sx < 0 || sy < 0 || sx >= width || sy >= height {
+	var wg sync.WaitGroup
+	wn := runtime.NumCPU()
+	for wi := 0; wi < wn; wi++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for py := 0; py < height; py++ {
+				if py%wn != wi {
 					continue
 				}
-				// result[sy*width+sx] = Color{1, 0, 0, 1}
-				// continue
-				hm := heightMap[sy*width+sx]
-				q := inverse.MulPosition(Vector{
-					float64(sx)/float64(width-1)*2 - 1,
-					float64(sy)/float64(height-1)*2 - 1,
-					hm.R*2 - 1,
-				})
-				d := n.Dot(q.Sub(p))
-				if hm.A == 0 {
-					d = -curvatureSamplingRadius_mm / 2
-					total += 1
+				for px := 0; px < width; px++ {
+					// if px%20 != 0 || py%20 != 0 {
+					// 	continue
+					// }
+
+					i := py*width + px
+					hm := heightMap[i]
+					nm := normalMap[i]
+
+					if hm.A == 0 {
+						continue
+					}
+
+					p := inverse.MulPosition(Vector{
+						float64(px)/float64(width-1)*2 - 1,
+						float64(py)/float64(height-1)*2 - 1,
+						hm.R*2 - 1,
+					})
+
+					n := Vector{nm.R*2 - 1, nm.G*2 - 1, nm.B*2 - 1}.Normalize()
+
+					m := RotateTo(Vector{0, 0, -1}, n)
+
+					var sum float64
+					var total float64
+					for i := 0; i < curvatureSampleCount; i++ {
+						a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
+						dir := Vector{math.Cos(a), math.Sin(a), 0}
+						offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
+						sx := px + int(math.Round(offset.X))
+						sy := py + int(math.Round(offset.Y))
+						if sx < 0 || sy < 0 || sx >= width || sy >= height {
+							continue
+						}
+						// result[sy*width+sx] = Color{1, 0, 0, 1}
+						// continue
+						hm := heightMap[sy*width+sx]
+						q := inverse.MulPosition(Vector{
+							float64(sx)/float64(width-1)*2 - 1,
+							float64(sy)/float64(height-1)*2 - 1,
+							hm.R*2 - 1,
+						})
+						d := n.Dot(q.Sub(p))
+						if hm.A == 0 {
+							d = -curvatureSamplingRadius_mm / 2
+							total += 1
+						} else {
+							if q.Z < p.Z-curvatureSamplingRadius_mm {
+								d = 0
+								total += 5
+							}
+							if q.Z > p.Z+curvatureSamplingRadius_mm {
+								d = -curvatureSamplingRadius_mm / 2
+								total += 1
+							}
+						}
+						t := d / curvatureSamplingRadius_mm
+						t = math.Max(t, -1)
+						t = math.Min(t, 1)
+						sum += t
+						total++
+					}
+					t := sum / total
+					result[i] = Color{t, t, t, nm.A}
 				}
-				if hm.A != 0 && q.Z < p.Z-curvatureSamplingRadius_mm*1 {
-					d = 0
-					total += 1
-				}
-				t := d / curvatureSamplingRadius_mm
-				t = math.Max(t, -1)
-				t = math.Min(t, 1)
-				sum += t
-				total++
 			}
-			t := sum / total
-			result[i] = Color{t, t, t, nm.A}
-		}
+		}()
 	}
+	wg.Wait()
 
 	min := result[0].R
 	max := result[0].R
@@ -234,8 +253,6 @@ func run(inputPath string, frame int) error {
 	// mesh.SmoothNormalsThreshold(Radians(40))
 	box := mesh.BoundingBox()
 	size := box.Size()
-	size.X = 160
-	size.Y = 90
 	fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
@@ -290,7 +307,7 @@ func main() {
 		for i := 0; i < frames; i++ {
 			fmt.Println(i)
 			run(path, i)
+			break
 		}
-
 	}
 }
