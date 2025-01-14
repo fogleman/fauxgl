@@ -23,7 +23,7 @@ const (
 	padding_mm                 = 1
 	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 0.8
-	frames                     = 90
+	frames                     = 180
 )
 
 const (
@@ -165,7 +165,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 						}
 						d := n.Dot(q.Sub(p))
 						if hm.A != 0 {
-							if q.Z < p.Z-curvatureSamplingRadius_mm*3 {
+							if q.Z < p.Z-curvatureSamplingRadius_mm*1 {
 								d = 0
 								// total += 1
 							}
@@ -194,7 +194,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			max = c.R
 		}
 	}
-	fmt.Println(min, max)
+	// fmt.Println(min, max)
 	if math.Abs(min) > math.Abs(max) {
 		max = -min
 	} else {
@@ -242,23 +242,32 @@ func run(inputPath string, frame int) error {
 	}
 
 	t := float64(frame) / frames
-	angle := t * 2 * math.Pi
+	angle := -t * 2 * math.Pi
 
 	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
-	mesh.MoveTo(Vector{}, Vector{0.5, 0.5, 0})
+	mesh.MoveTo(Vector{5, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
+
 	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
 
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
 	// mesh.SmoothNormalsThreshold(Radians(40))
 	box := mesh.BoundingBox()
 	size := box.Size()
+	size.X = 70
+	size.Y = 48
 	fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
 	width := int(math.Ceil((size.X + padding_mm*2) * pixelsPerMillimeter))
 	height := int(math.Ceil((size.Y + padding_mm*2) * pixelsPerMillimeter))
+	if width%2 != 0 {
+		width++
+	}
+	if height%2 != 0 {
+		height++
+	}
 
 	aspect := float64(width) / float64(height)
 	s := size.Y/2 + padding_mm
@@ -307,7 +316,7 @@ func main() {
 		for i := 0; i < frames; i++ {
 			fmt.Println(i)
 			run(path, i)
-			break
+			// break
 		}
 	}
 }
