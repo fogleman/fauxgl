@@ -19,9 +19,9 @@ import (
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 2
+	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 0.8
 	frames                     = 90
 )
@@ -156,18 +156,18 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 							float64(sy)/float64(height-1)*2 - 1,
 							hm.R*2 - 1,
 						})
-						d := n.Dot(q.Sub(p))
 						if hm.A == 0 {
-							d = -curvatureSamplingRadius_mm / 2
-							total += 1
+							q.Z = p.Z + curvatureSamplingRadius_mm
 						} else {
-							if q.Z < p.Z-curvatureSamplingRadius_mm {
-								d = 0
-								total += 5
-							}
 							if q.Z > p.Z+curvatureSamplingRadius_mm {
-								d = -curvatureSamplingRadius_mm / 2
-								total += 1
+								q.Z = p.Z + curvatureSamplingRadius_mm
+							}
+						}
+						d := n.Dot(q.Sub(p))
+						if hm.A != 0 {
+							if q.Z < p.Z-curvatureSamplingRadius_mm*3 {
+								d = 0
+								// total += 1
 							}
 						}
 						t := d / curvatureSamplingRadius_mm
