@@ -18,11 +18,13 @@ import (
 
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
+// var palette = colormap.New(colormap.ParseColors("000000ffffff"))
+
 const (
-	pixelsPerMillimeter        = 20
+	pixelsPerMillimeter        = 10
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.5
-	curvatureGamma             = 0.8
+	curvatureSamplingRadius_mm = 1
+	curvatureGamma             = 1
 	frames                     = 180
 )
 
@@ -96,13 +98,80 @@ func updateHeightMap(heightMap, update []Color) []Color {
 
 func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix Matrix) []Color {
 	result := make([]Color, len(heightMap))
-	inverse := matrix.Inverse()
 
 	p0 := matrix.MulPosition(Vector{0, 0, 0})
 	p1 := matrix.MulPosition(Vector{1, 0, 0})
 	px_per_mm := p0.Distance(p1) * float64(width) / 2
-
 	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius_mm * px_per_mm / 2))
+	inverse := matrix.Inverse()
+	invalid := Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
+
+	pointAt := func(px, py int) Vector {
+		if px < 0 || py < 0 || px >= width || py >= height {
+			return invalid
+		}
+		c := heightMap[py*width+px]
+		if c.A == 0 {
+			return invalid
+		}
+		x := float64(px)/float64(width-1)*2 - 1
+		y := float64(py)/float64(height-1)*2 - 1
+		z := c.R*2 - 1
+		return inverse.MulPosition(Vector{x, y, z})
+	}
+
+	normalAt := func(px, py int) Vector {
+		if px < 0 || py < 0 || px >= width || py >= height {
+			return invalid
+		}
+		c := normalMap[py*width+px]
+		if c.A == 0 {
+			return invalid
+		}
+		return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
+	}
+
+	curvatureAt := func(px, py int) float64 {
+		n := normalAt(px, py)
+		if n == invalid {
+			return math.NaN()
+		}
+		p := pointAt(px, py)
+		m := RotateTo(Vector{0, 0, -1}, n)
+
+		var sum float64
+		var total float64
+		for i := 0; i < curvatureSampleCount; i++ {
+			a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
+			dir := Vector{math.Cos(a), math.Sin(a), 0}
+			offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
+			sx := px + int(math.Round(offset.X))
+			sy := py + int(math.Round(offset.Y))
+			q := pointAt(sx, sy)
+			if q == invalid {
+				q = p
+				q.Z = p.Z + curvatureSamplingRadius_mm
+			} else {
+				if q.Z > p.Z+curvatureSamplingRadius_mm*2 {
+					q.Z = p.Z + curvatureSamplingRadius_mm*1
+				}
+			}
+			d := n.Dot(q.Sub(p))
+			if q != invalid {
+				if q.Z < p.Z-curvatureSamplingRadius_mm*2 {
+					d = 0
+					total += 1
+					// continue
+				}
+			}
+			t := d / curvatureSamplingRadius_mm
+			t = math.Max(t, -1)
+			t = math.Min(t, 1)
+			sum += t
+			total++
+		}
+		return sum / total
+	}
 
 	var wg sync.WaitGroup
 	wn := runtime.NumCPU()
@@ -118,92 +187,22 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 					// if px%20 != 0 || py%20 != 0 {
 					// 	continue
 					// }
-
-					i := py*width + px
-					hm := heightMap[i]
-					nm := normalMap[i]
-
-					if hm.A == 0 {
-						continue
+					t := curvatureAt(px, py)
+					if !math.IsNaN(t) {
+						result[py*width+px] = Color{t, t, t, 1}
 					}
-
-					p := inverse.MulPosition(Vector{
-						float64(px)/float64(width-1)*2 - 1,
-						float64(py)/float64(height-1)*2 - 1,
-						hm.R*2 - 1,
-					})
-
-					n := Vector{nm.R*2 - 1, nm.G*2 - 1, nm.B*2 - 1}.Normalize()
-
-					m := RotateTo(Vector{0, 0, -1}, n)
-
-					var sum float64
-					var total float64
-					for i := 0; i < curvatureSampleCount; i++ {
-						a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
-						dir := Vector{math.Cos(a), math.Sin(a), 0}
-						offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
-						sx := px + int(math.Round(offset.X))
-						sy := py + int(math.Round(offset.Y))
-						if sx < 0 || sy < 0 || sx >= width || sy >= height {
-							continue
-						}
-						// result[sy*width+sx] = Color{1, 0, 0, 1}
-						// continue
-						hm := heightMap[sy*width+sx]
-						q := inverse.MulPosition(Vector{
-							float64(sx)/float64(width-1)*2 - 1,
-							float64(sy)/float64(height-1)*2 - 1,
-							hm.R*2 - 1,
-						})
-						if hm.A == 0 {
-							q.Z = p.Z + curvatureSamplingRadius_mm
-						} else {
-							if q.Z > p.Z+curvatureSamplingRadius_mm {
-								q.Z = p.Z + curvatureSamplingRadius_mm
-							}
-						}
-						d := n.Dot(q.Sub(p))
-						if hm.A != 0 {
-							if q.Z < p.Z-curvatureSamplingRadius_mm*1 {
-								d = 0
-								// total += 1
-							}
-						}
-						t := d / curvatureSamplingRadius_mm
-						t = math.Max(t, -1)
-						t = math.Min(t, 1)
-						sum += t
-						total++
-					}
-					t := sum / total
-					result[i] = Color{t, t, t, nm.A}
 				}
 			}
 		}()
 	}
 	wg.Wait()
 
-	min := result[0].R
-	max := result[0].R
-	for _, c := range result {
-		if c.R < min {
-			min = c.R
-		}
-		if c.R > max {
-			max = c.R
-		}
-	}
-	// fmt.Println(min, max)
-	if math.Abs(min) > math.Abs(max) {
-		max = -min
-	} else {
-		min = -max
-	}
-	// min, max = min/2, max/2
-	min, max = -1, 1
+	min, max := -1.0, 1.0
 	for i := range result {
 		c := result[i]
+		if c.A == 0 {
+			continue
+		}
 		t := (c.R-min)/(max-min)*2 - 1
 		if t < 0 {
 			t = -math.Pow(-t, curvatureGamma)
@@ -227,6 +226,7 @@ func makeImage(width, height int, buf []Color) *image.RGBA64 {
 			e := color.NRGBA64{uint16(r), uint16(g), uint16(b), uint16(c.A * 0xffff)}
 			if c.A == 0 {
 				e = color.NRGBA64{0xffff, 0xffff, 0xffff, 0xffff}
+				// e = color.NRGBA64{}
 			}
 			im.Set(x, y, e)
 			i++
@@ -244,30 +244,25 @@ func run(inputPath string, frame int) error {
 	t := float64(frame) / frames
 	angle := -t * 2 * math.Pi
 
-	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
-	mesh.MoveTo(Vector{5, 0, 0}, Vector{0.5, 0.5, 0.5})
+	// mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
+	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
-
 	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
-
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
-	// mesh.SmoothNormalsThreshold(Radians(40))
+	// mesh.SmoothNormalsThreshold(Radians(30))
+
 	box := mesh.BoundingBox()
 	size := box.Size()
-	size.X = 70
-	size.Y = 48
+	// size.X = 70
+	// size.Y = 48
 	fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
 	width := int(math.Ceil((size.X + padding_mm*2) * pixelsPerMillimeter))
 	height := int(math.Ceil((size.Y + padding_mm*2) * pixelsPerMillimeter))
-	if width%2 != 0 {
-		width++
-	}
-	if height%2 != 0 {
-		height++
-	}
+	width += width % 2
+	height += height % 2
 
 	aspect := float64(width) / float64(height)
 	s := size.Y/2 + padding_mm
@@ -282,29 +277,26 @@ func run(inputPath string, frame int) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(width, height, modeNormal, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("%s-normal.png", filepath.Base(inputPath)), context.Image())
-
+		SavePNG(fmt.Sprintf("%s-normal.png", filepath.Base(inputPath)), context.Image())
 		normalMap := context.Buffer()
-
-		// context.ClearDepthBuffer()
-		// context.ClearColorBufferWith(Color{})
-		// context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
-		// context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(width, height, modeHeight, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("%s-height.png", filepath.Base(inputPath)), context.Image())
-
+		SavePNG(fmt.Sprintf("%s-height.png", filepath.Base(inputPath)), context.Image())
 		heightMap := context.Buffer()
+
+		context.ClearDepthBuffer()
+		context.ClearColorBufferWith(Color{})
+		context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
+		context.DrawMesh(mesh)
+		SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
 		curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
 		SavePNG(fmt.Sprintf("%s-curvature-%08d.png", filepath.Base(inputPath), frame), makeImage(width, height, curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
-		// break
 	}
 
 	return nil
@@ -316,7 +308,7 @@ func main() {
 		for i := 0; i < frames; i++ {
 			fmt.Println(i)
 			run(path, i)
-			// break
+			break
 		}
 	}
 }

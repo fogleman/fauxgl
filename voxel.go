@@ -91,7 +91,7 @@ func NewVoxelMesh(voxels []Voxel) *Mesh {
 	// find large rectangles, triangulate and outline
 	for plane, faces := range planeFaces {
 		faces = combineVoxelFaces(faces)
-		lines = append(lines, outlineVoxelFaces(plane, faces)...)
+		// lines = append(lines, outlineVoxelFaces(plane, faces)...)
 		triangles = append(triangles, triangulateVoxelFaces(plane, faces)...)
 	}
 

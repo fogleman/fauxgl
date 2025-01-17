@@ -5,8 +5,8 @@ import (
 	"log"
 	"math"
 
-	kingpin "github.com/alecthomas/kingpin/v2"
 	. "github.com/fogleman/fauxgl"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -78,7 +78,7 @@ func main() {
 			x = float64(row) * maxSize.X
 			y = float64(col) * maxSize.Y
 		}
-		mesh.MoveTo(V(x, y, z), V(0.5, 0.5, 0.5))
+		mesh.MoveTo(V(x, y, z), V(0.5, 0.5, 0))
 		combined.Add(mesh)
 	}
 

@@ -149,7 +149,7 @@ func loadSTLB(file *os.File) (*Mesh, error) {
 		box = box.Extend(<-ch)
 	}
 	mesh := NewTriangleMesh(triangles)
-	mesh.box = &box
+	// mesh.box = &box
 	return mesh, nil
 }
 
