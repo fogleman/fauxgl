@@ -20,6 +20,7 @@ def plot(points):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
+    ax.set_box_aspect((np.ptp(X), np.ptp(Y), np.ptp(Z)))
     plt.show()
 
 def main():

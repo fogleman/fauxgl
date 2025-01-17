@@ -21,9 +21,9 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 1
+	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 1
 	frames                     = 180
 )
@@ -118,7 +118,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		x := float64(px)/float64(width-1)*2 - 1
 		y := float64(py)/float64(height-1)*2 - 1
 		z := c.R*2 - 1
-		return inverse.MulPosition(Vector{x, y, z})
+		return inverse.MulPosition(Vector{x, 1 - y, z})
 	}
 
 	normalAt := func(px, py int) Vector {
@@ -132,7 +132,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
 	}
 
-	debugX, debugY := 420, 280
+	debugX, debugY := -1, -1
 
 	curvatureAt := func(px, py int) float64 {
 		n := normalAt(px, py)
@@ -178,7 +178,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			total++
 		}
 
-		for i := 0; i < curvatureSampleCount*0; i++ {
+		for i := 0; i < curvatureSampleCount; i++ {
 			a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
 			dir := Vector{math.Cos(a), math.Sin(a), 0}
 			offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
@@ -189,6 +189,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 
 		for dy := -w; dy <= w; dy++ {
 			for dx := -w; dx <= w; dx++ {
+				break
 				// d := math.Hypot(float64(dx), float64(dy))
 				// if d > float64(w) || d < float64(w)*0.8 {
 				// 	continue
@@ -273,7 +274,7 @@ func run(inputPath string, frame int) error {
 	t := float64(frame) / frames
 	angle := -t * 2 * math.Pi
 
-	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
+	// mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
 	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
 	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
