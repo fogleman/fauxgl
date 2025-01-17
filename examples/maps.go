@@ -105,6 +105,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius_mm * px_per_mm / 2))
 	inverse := matrix.Inverse()
 	invalid := Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
+	w := int(math.Ceil(curvatureSamplingRadius_mm * px_per_mm))
 
 	pointAt := func(px, py int) Vector {
 		if px < 0 || py < 0 || px >= width || py >= height {
@@ -131,6 +132,8 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
 	}
 
+	debugX, debugY := 420, 280
+
 	curvatureAt := func(px, py int) float64 {
 		n := normalAt(px, py)
 		if n == invalid {
@@ -139,15 +142,19 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		p := pointAt(px, py)
 		m := RotateTo(Vector{0, 0, -1}, n)
 
+		if px == debugX && py == debugY {
+			fmt.Printf("%f,%f,%f,%f,%f,%f\n", p.X, p.Y, p.Z, n.X, n.Y, n.Z)
+		}
+
 		var sum float64
 		var total float64
-		for i := 0; i < curvatureSampleCount; i++ {
-			a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
-			dir := Vector{math.Cos(a), math.Sin(a), 0}
-			offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
-			sx := px + int(math.Round(offset.X))
-			sy := py + int(math.Round(offset.Y))
+
+		sample := func(sx, sy int) {
 			q := pointAt(sx, sy)
+			m := normalAt(sx, sy)
+			if q != invalid && px == debugX && py == debugY {
+				fmt.Printf("%f,%f,%f,%f,%f,%f\n", q.X, q.Y, q.Z, m.X, m.Y, m.Z)
+			}
 			if q == invalid {
 				q = p
 				q.Z = p.Z + curvatureSamplingRadius_mm
@@ -170,6 +177,28 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			sum += t
 			total++
 		}
+
+		for i := 0; i < curvatureSampleCount*0; i++ {
+			a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
+			dir := Vector{math.Cos(a), math.Sin(a), 0}
+			offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
+			sx := px + int(math.Round(offset.X))
+			sy := py + int(math.Round(offset.Y))
+			sample(sx, sy)
+		}
+
+		for dy := -w; dy <= w; dy++ {
+			for dx := -w; dx <= w; dx++ {
+				// d := math.Hypot(float64(dx), float64(dy))
+				// if d > float64(w) || d < float64(w)*0.8 {
+				// 	continue
+				// }
+				sx := px + dx
+				sy := py + dy
+				sample(sx, sy)
+			}
+		}
+
 		return sum / total
 	}
 
@@ -244,7 +273,7 @@ func run(inputPath string, frame int) error {
 	t := float64(frame) / frames
 	angle := -t * 2 * math.Pi
 
-	// mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
+	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
 	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
 	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
@@ -255,7 +284,7 @@ func run(inputPath string, frame int) error {
 	size := box.Size()
 	// size.X = 70
 	// size.Y = 48
-	fmt.Println(size)
+	// fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
 
@@ -304,9 +333,9 @@ func run(inputPath string, frame int) error {
 
 func main() {
 	for _, path := range os.Args[1:] {
-		fmt.Println(path)
+		// fmt.Println(path)
 		for i := 0; i < frames; i++ {
-			fmt.Println(i)
+			// fmt.Println(i)
 			run(path, i)
 			break
 		}
