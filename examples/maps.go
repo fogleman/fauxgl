@@ -22,10 +22,10 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 20
+	pixelsPerMillimeter        = 10
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.5
-	curvatureGamma             = 1
+	curvatureSamplingRadius_mm = 1
+	curvatureGamma             = 0.8
 	frames                     = 180
 )
 
@@ -107,7 +107,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	invalid := Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
 	ws := int(math.Ceil(curvatureSamplingRadius_mm * px_per_mm))
 
-	pointAt := func(px, py int) Vector {
+	computePointAt := func(px, py int) Vector {
 		if px < 0 || py < 0 || px >= width || py >= height {
 			return invalid
 		}
@@ -121,6 +121,20 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		return inverse.MulPosition(Vector{x, 1 - y, z})
 	}
 
+	allPoints := make([]Vector, 0, width*height)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			allPoints = append(allPoints, computePointAt(x, y))
+		}
+	}
+
+	pointAt := func(px, py int) Vector {
+		if px < 0 || py < 0 || px >= width || py >= height {
+			return invalid
+		}
+		return allPoints[py*width+px]
+	}
+
 	normalAt := func(px, py int) Vector {
 		if px < 0 || py < 0 || px >= width || py >= height {
 			return invalid
@@ -132,18 +146,18 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
 	}
 
-	bilinear := func(points [][]Vector, x, y float64) Vector {
+	bilinear := func(x, y float64) Vector {
 		x0, y0 := int(math.Floor(x)), int(math.Floor(y))
 		x1, y1 := x0+1, y0+1
 		x -= float64(x0)
 		y -= float64(y0)
-		if x0 < 0 || y0 < 0 || x1 >= len(points) || y1 >= len(points[0]) {
+		if x0 < 0 || y0 < 0 || x1 >= width || y1 >= height {
 			return invalid
 		}
-		p00 := points[x0][y0]
-		p10 := points[x1][y0]
-		p01 := points[x0][y1]
-		p11 := points[x1][y1]
+		p00 := allPoints[y0*width+x0]
+		p10 := allPoints[y0*width+x1]
+		p01 := allPoints[y1*width+x0]
+		p11 := allPoints[y1*width+x1]
 		if p00 == invalid || p01 == invalid || p10 == invalid || p11 == invalid {
 			return invalid
 		}
@@ -162,33 +176,21 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			return math.NaN()
 		}
 
-		N := ws*2 + 1
-		points := make([][]Vector, N)
-		for i := range points {
-			points[i] = make([]Vector, N)
-		}
-
-		for y := 0; y < N; y++ {
-			for x := 0; x < N; x++ {
-				points[x][y] = pointAt(px+x-ws, py+y-ws)
-				if points[x][y].Distance(p) > curvatureSamplingRadius_mm*3 {
-					points[x][y] = invalid
-				}
-			}
-		}
-
+		dx := px - ws
+		dy := py - ws
 		f := func(x, y int) float64 {
-			return p.Distance(points[x][y])
+			q := pointAt(x+dx, y+dy)
+			return p.Distance(q)
 		}
-		m := contourmap.FromFunction(N, N, f)
+		m := contourmap.FromFunction(ws*2+1, ws*2+1, f)
 		contours := m.Contours(curvatureSamplingRadius_mm)
 
 		var sum, total float64
 		for _, contour := range contours {
 			for i := 1; i < len(contour); i++ {
 				j := i - 1
-				p0 := bilinear(points, contour[j].X, contour[j].Y)
-				p1 := bilinear(points, contour[i].X, contour[i].Y)
+				p0 := bilinear(contour[j].X+float64(dx), contour[j].Y+float64(dy))
+				p1 := bilinear(contour[i].X+float64(dx), contour[i].Y+float64(dy))
 				if p0 == invalid || p1 == invalid {
 					continue
 				}
