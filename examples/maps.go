@@ -22,7 +22,7 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
 	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 1
@@ -103,7 +103,6 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	p0 := matrix.MulPosition(Vector{0, 0, 0})
 	p1 := matrix.MulPosition(Vector{1, 0, 0})
 	px_per_mm := p0.Distance(p1) * float64(width) / 2
-	curvatureSampleCount := int(math.Ceil(2 * math.Pi * curvatureSamplingRadius_mm * px_per_mm / 2))
 	inverse := matrix.Inverse()
 	invalid := Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
 	ws := int(math.Ceil(curvatureSamplingRadius_mm * px_per_mm))
@@ -156,8 +155,12 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		return v
 	}
 
-	doContour := func(px, py int) float64 {
-		center := pointAt(px, py)
+	curvatureAt := func(px, py int) float64 {
+		p := pointAt(px, py)
+		n := normalAt(px, py)
+		if p == invalid {
+			return math.NaN()
+		}
 
 		N := ws*2 + 1
 		points := make([][]Vector, N)
@@ -168,17 +171,17 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		for y := 0; y < N; y++ {
 			for x := 0; x < N; x++ {
 				points[x][y] = pointAt(px+x-ws, py+y-ws)
+				if points[x][y].Distance(p) > curvatureSamplingRadius_mm*3 {
+					points[x][y] = invalid
+				}
 			}
 		}
 
 		f := func(x, y int) float64 {
-			return center.Distance(points[x][y])
+			return p.Distance(points[x][y])
 		}
 		m := contourmap.FromFunction(N, N, f)
 		contours := m.Contours(curvatureSamplingRadius_mm)
-
-		p := pointAt(px, py)
-		n := normalAt(px, py)
 
 		var sum, total float64
 		for _, contour := range contours {
@@ -191,8 +194,9 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 				}
 				d0 := n.Dot(p0.Sub(p))
 				d1 := n.Dot(p1.Sub(p))
-				sum += (d0 + d1) / 2
-				total += p0.Distance(p1)
+				d := p0.Distance(p1)
+				sum += (d0 + d1) / 2 * d
+				total += d
 			}
 		}
 
@@ -200,89 +204,9 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			return math.NaN()
 		}
 
-		return sum / total
+		mean := sum / total
+		return math.Min(math.Max(mean, -1), 1)
 	}
-
-	// debugX, debugY := 500, 100
-	debugX, debugY := 560, 263
-
-	curvatureAt := func(px, py int) float64 {
-		n := normalAt(px, py)
-		if n == invalid {
-			return math.NaN()
-		}
-		p := pointAt(px, py)
-
-		if px == debugX && py == debugY {
-			// doContour(px, py)
-			// fmt.Printf("%f,%f,%f,%f,%f,%f\n", p.X, p.Y, p.Z, n.X, n.Y, n.Z)
-			// m := triangulateWindow(px, py)
-			// m.SaveSTL("window.stl")
-			// m = NewSphere(3)
-			// r := float64(curvatureSamplingRadius_mm)
-			// m.Transform(Scale(Vector{r, r, r}).Translate(p))
-			// m.SaveSTL("sample.stl")
-		}
-
-		var sum float64
-		var total float64
-
-		sample := func(sx, sy int) {
-			q := pointAt(sx, sy)
-			// m := normalAt(sx, sy)
-			// if q != invalid && px == debugX && py == debugY {
-			// 	fmt.Printf("%f,%f,%f,%f,%f,%f\n", q.X, q.Y, q.Z, m.X, m.Y, m.Z)
-			// }
-			if q == invalid {
-				q = p
-				q.Z = p.Z + curvatureSamplingRadius_mm
-			} else {
-				if q.Z > p.Z+curvatureSamplingRadius_mm*2 {
-					q.Z = p.Z + curvatureSamplingRadius_mm*1
-				}
-			}
-			d := n.Dot(q.Sub(p))
-			if q != invalid {
-				if q.Z < p.Z-curvatureSamplingRadius_mm*2 {
-					d = 0
-					total += 1
-					// continue
-				}
-			}
-			t := d / curvatureSamplingRadius_mm
-			t = math.Max(t, -1)
-			t = math.Min(t, 1)
-			sum += t
-			total++
-		}
-
-		m := RotateTo(Vector{0, 0, -1}, n)
-		for i := 0; i < curvatureSampleCount; i++ {
-			break
-			a := float64(i) / float64(curvatureSampleCount) * 2 * math.Pi
-			dir := Vector{math.Cos(a), math.Sin(a), 0}
-			offset := m.MulDirection(dir).MulScalar(curvatureSamplingRadius_mm * px_per_mm)
-			sx := px + int(math.Round(offset.X))
-			sy := py + int(math.Round(offset.Y))
-			sample(sx, sy)
-		}
-
-		for dy := -ws; dy <= ws; dy++ {
-			for dx := -ws; dx <= ws; dx++ {
-				// break
-				// d := math.Hypot(float64(dx), float64(dy))
-				// if d > float64(ws) || d < float64(ws)*0.8 {
-				// 	continue
-				// }
-				sx := px + dx
-				sy := py + dy
-				sample(sx, sy)
-			}
-		}
-
-		return sum / total
-	}
-	_ = curvatureAt
 
 	var wg sync.WaitGroup
 	wn := runtime.NumCPU()
@@ -295,11 +219,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 					continue
 				}
 				for px := 0; px < width; px++ {
-					// if px%20 != 0 || py%20 != 0 {
-					// 	continue
-					// }
-					// t := curvatureAt(px, py)
-					t := doContour(px, py)
+					t := curvatureAt(px, py)
 					if !math.IsNaN(t) {
 						result[py*width+px] = Color{t, t, t, 1}
 					}
@@ -310,7 +230,11 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	wg.Wait()
 
 	min, max := -1.0, 1.0
-	min, max = -5, 5
+	max = 0
+	for i := range result {
+		max = math.Max(max, math.Abs(result[i].R))
+	}
+	min, max = -max, max
 	for i := range result {
 		c := result[i]
 		if c.A == 0 {
@@ -357,7 +281,7 @@ func run(inputPath string, frame int) error {
 	t := float64(frame) / frames
 	angle := -t * 2 * math.Pi
 
-	// mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
+	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
 	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
 	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
