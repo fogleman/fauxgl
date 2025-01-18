@@ -22,9 +22,9 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.5
+	curvatureSamplingRadius_mm = 1
 	curvatureGamma             = 1
 	frames                     = 180
 )
@@ -40,6 +40,8 @@ var (
 	center = V(0, 0, 1)
 	up     = V(0, -1, 0)
 )
+
+var Invalid = Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
 
 type MapShader struct {
 	Width     int
@@ -101,7 +103,7 @@ type Segment struct {
 	A, B Vector
 }
 
-func marchingSquares(w, h int, data []float64, z float64) []Segment {
+func MarchingSquares(w, h int, data []float64, z float64, segments []Segment) []Segment {
 	fraction := func(z0, z1, z float64) float64 {
 		const eps = 1e-9 // TODO: needed here?
 		var f float64
@@ -112,7 +114,6 @@ func marchingSquares(w, h int, data []float64, z float64) []Segment {
 		f = math.Min(f, 1-eps)
 		return f
 	}
-	var segments []Segment
 	for y := 0; y < h-1; y++ {
 		for x := 0; x < w-1; x++ {
 			ul := data[x+y*w]
@@ -194,134 +195,188 @@ func marchingSquares(w, h int, data []float64, z float64) []Segment {
 	return segments
 }
 
-func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix Matrix) []Color {
-	result := make([]Color, len(heightMap))
+type CurvatureSamplerBuffers struct {
+	Grid     []float64
+	Segments []Segment
+}
 
-	p0 := matrix.MulPosition(Vector{0, 0, 0})
-	p1 := matrix.MulPosition(Vector{1, 0, 0})
-	px_per_mm := p0.Distance(p1) * float64(width) / 2
-	inverse := matrix.Inverse()
-	invalid := Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
-	ws := int(math.Ceil(curvatureSamplingRadius_mm * px_per_mm))
+type CurvatureSampler struct {
+	Width     int
+	Height    int
+	Radius    float64
+	Matrix    Matrix
+	HeightMap []Color
+	NormalMap []Color
 
-	computePointAt := func(px, py int) Vector {
-		if px < 0 || py < 0 || px >= width || py >= height {
-			return invalid
+	Inverse   Matrix
+	HalfWidth int
+	Points    []Vector
+	Normals   []Vector
+}
+
+func NewCurvatureSampler(width, height int, radius float64, matrix Matrix, heightMap, normalMap []Color) *CurvatureSampler {
+	cs := &CurvatureSampler{}
+	cs.Width = width
+	cs.Height = height
+	cs.Radius = radius
+	cs.Matrix = matrix
+	cs.HeightMap = heightMap
+	cs.NormalMap = normalMap
+	cs.Initialize()
+	return cs
+}
+
+func (cs *CurvatureSampler) Initialize() {
+	w, h := cs.Width, cs.Height
+
+	cs.Inverse = cs.Matrix.Inverse()
+
+	p0 := cs.Matrix.MulPosition(Vector{0, 0, 0})
+	p1 := cs.Matrix.MulPosition(Vector{1, 0, 0})
+	px_per_mm := p0.Distance(p1) * float64(w) / 2
+	cs.HalfWidth = int(math.Ceil(cs.Radius * px_per_mm))
+
+	cs.Points = make([]Vector, 0, w*h)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			cs.Points = append(cs.Points, cs.ComputePointAt(x, y))
 		}
-		c := heightMap[py*width+px]
-		// if c.A == 0 {
-		// 	return invalid
-		// }
-		x := float64(px)/float64(width-1)*2 - 1
-		y := float64(py)/float64(height-1)*2 - 1
-		z := c.R*2 - 1
-		if c.A == 0 {
-			z = 2
-		}
-		return inverse.MulPosition(Vector{x, 1 - y, z})
 	}
 
-	allPoints := make([]Vector, 0, width*height)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			allPoints = append(allPoints, computePointAt(x, y))
+	cs.Normals = make([]Vector, 0, w*h)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			cs.Normals = append(cs.Normals, cs.ComputeNormalAt(x, y))
 		}
 	}
+}
 
-	pointAt := func(px, py int) Vector {
-		if px < 0 || py < 0 || px >= width || py >= height {
-			return invalid
-		}
-		return allPoints[py*width+px]
+func (cs *CurvatureSampler) ComputePointAt(px, py int) Vector {
+	w, h := cs.Width, cs.Height
+	if px < 0 || py < 0 || px >= w || py >= h {
+		return Invalid
 	}
-
-	normalAt := func(px, py int) Vector {
-		if px < 0 || py < 0 || px >= width || py >= height {
-			return invalid
-		}
-		c := normalMap[py*width+px]
-		if c.A == 0 {
-			return invalid
-		}
-		return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
+	c := cs.HeightMap[py*w+px]
+	x := float64(px)/float64(w-1)*2 - 1
+	y := float64(py)/float64(h-1)*2 - 1
+	z := c.R*2 - 1
+	if c.A == 0 {
+		z = 2
 	}
+	return cs.Inverse.MulPosition(Vector{x, 1 - y, z})
+}
 
-	bilinear := func(x, y float64) Vector {
-		x0, y0 := int(math.Floor(x)), int(math.Floor(y))
-		x1, y1 := x0+1, y0+1
-		x -= float64(x0)
-		y -= float64(y0)
-		if x0 < 0 || y0 < 0 || x1 >= width || y1 >= height {
-			return invalid
-		}
-		p00 := allPoints[y0*width+x0]
-		p10 := allPoints[y0*width+x1]
-		p01 := allPoints[y1*width+x0]
-		p11 := allPoints[y1*width+x1]
-		if p00 == invalid || p01 == invalid || p10 == invalid || p11 == invalid {
-			return invalid
-		}
-		var v Vector
-		v = v.Add(p00.MulScalar((1 - x) * (1 - y)))
-		v = v.Add(p10.MulScalar(x * (1 - y)))
-		v = v.Add(p01.MulScalar((1 - x) * y))
-		v = v.Add(p11.MulScalar(x * y))
-		return v
+func (cs *CurvatureSampler) ComputeNormalAt(px, py int) Vector {
+	w, h := cs.Width, cs.Height
+	if px < 0 || py < 0 || px >= w || py >= h {
+		return Invalid
 	}
+	c := cs.NormalMap[py*w+px]
+	if c.A == 0 {
+		return Invalid
+	}
+	return Vector{c.R*2 - 1, c.G*2 - 1, c.B*2 - 1}.Normalize()
+}
 
-	curvatureAt := func(px, py int) float64 {
-		p := pointAt(px, py)
-		n := normalAt(px, py)
-		if n == invalid {
+func (cs *CurvatureSampler) PointAt(px, py int) Vector {
+	if px < 0 || py < 0 || px >= cs.Width || py >= cs.Height {
+		return Invalid
+	}
+	return cs.Points[py*cs.Width+px]
+}
+
+func (cs *CurvatureSampler) NormalAt(px, py int) Vector {
+	if px < 0 || py < 0 || px >= cs.Width || py >= cs.Height {
+		return Invalid
+	}
+	return cs.Normals[py*cs.Width+px]
+}
+
+func (cs *CurvatureSampler) Bilinear(x, y float64) Vector {
+	w, h := cs.Width, cs.Height
+	x0, y0 := int(math.Floor(x)), int(math.Floor(y))
+	x1, y1 := x0+1, y0+1
+	x -= float64(x0)
+	y -= float64(y0)
+	if x0 < 0 || y0 < 0 || x1 >= w || y1 >= h {
+		return Invalid
+	}
+	p00 := cs.Points[y0*w+x0]
+	p10 := cs.Points[y0*w+x1]
+	p01 := cs.Points[y1*w+x0]
+	p11 := cs.Points[y1*w+x1]
+	if p00 == Invalid || p01 == Invalid || p10 == Invalid || p11 == Invalid {
+		return Invalid
+	}
+	var v Vector
+	v = v.Add(p00.MulScalar((1 - x) * (1 - y)))
+	v = v.Add(p10.MulScalar(x * (1 - y)))
+	v = v.Add(p01.MulScalar((1 - x) * y))
+	v = v.Add(p11.MulScalar(x * y))
+	return v
+}
+
+func (cs *CurvatureSampler) Sample(px, py int, buf *CurvatureSamplerBuffers) float64 {
+	n := cs.NormalAt(px, py)
+	if n == Invalid {
+		return math.NaN()
+	}
+	p := cs.PointAt(px, py)
+
+	dx := px - cs.HalfWidth
+	dy := py - cs.HalfWidth
+	f := func(x, y int) float64 {
+		q := cs.PointAt(x+dx, y+dy)
+		// TODO: make this a separate configurable threshold
+		if p.Z-q.Z > cs.Radius*2 {
 			return math.NaN()
 		}
-
-		dx := px - ws
-		dy := py - ws
-		f := func(x, y int) float64 {
-			q := pointAt(x+dx, y+dy)
-			// TODO: make this a separate configurable threshold
-			if p.Z-q.Z > curvatureSamplingRadius_mm*2 {
-				return math.NaN()
-			}
-			d := p.Distance(q)
-			return d
-		}
-
-		N := ws*2 + 1
-		grid := make([]float64, N*N)
-		i := 0
-		for y := 0; y < N; y++ {
-			for x := 0; x < N; x++ {
-				grid[i] = f(x, y)
-				i++
-			}
-		}
-		segments := marchingSquares(N, N, grid, curvatureSamplingRadius_mm)
-
-		var sum, total float64
-		for _, segment := range segments {
-			a := segment.A
-			b := segment.B
-			p0 := bilinear(a.X+float64(dx), a.Y+float64(dy))
-			p1 := bilinear(b.X+float64(dx), b.Y+float64(dy))
-			if p0 == invalid || p1 == invalid {
-				continue
-			}
-			d0 := n.Dot(p0.Sub(p)) / curvatureSamplingRadius_mm
-			d1 := n.Dot(p1.Sub(p)) / curvatureSamplingRadius_mm
-			d := p0.Distance(p1)
-			sum += (d0 + d1) / 2 * d
-			total += d
-		}
-
-		if total == 0 {
-			return math.NaN()
-		}
-
-		mean := sum / total
-		return math.Min(math.Max(mean, -1), 1)
+		d := p.Distance(q)
+		return d
 	}
+
+	N := cs.HalfWidth*2 + 1
+	if len(buf.Grid) != N*N {
+		buf.Grid = make([]float64, N*N)
+	}
+	i := 0
+	for y := 0; y < N; y++ {
+		for x := 0; x < N; x++ {
+			buf.Grid[i] = f(x, y)
+			i++
+		}
+	}
+
+	buf.Segments = buf.Segments[:0]
+	buf.Segments = MarchingSquares(N, N, buf.Grid, cs.Radius, buf.Segments)
+
+	var sum, total float64
+	for _, segment := range buf.Segments {
+		a := segment.A
+		b := segment.B
+		p0 := cs.Bilinear(a.X+float64(dx), a.Y+float64(dy))
+		p1 := cs.Bilinear(b.X+float64(dx), b.Y+float64(dy))
+		if p0 == Invalid || p1 == Invalid {
+			continue
+		}
+		d0 := n.Dot(p0.Sub(p))
+		d1 := n.Dot(p1.Sub(p))
+		d := p0.Distance(p1)
+		sum += (d0 + d1) / 2 * d
+		total += d
+	}
+
+	if total == 0 {
+		return math.NaN()
+	}
+
+	mean := sum / total
+	return math.Atan(mean / cs.Radius)
+}
+
+func (cs *CurvatureSampler) Run() []Color {
+	w, h := cs.Width, cs.Height
+	result := make([]Color, w*h)
 
 	var wg sync.WaitGroup
 	wn := runtime.NumCPU()
@@ -329,14 +384,15 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for py := 0; py < height; py++ {
+			buf := &CurvatureSamplerBuffers{}
+			for py := 0; py < h; py++ {
 				if py%wn != wi {
 					continue
 				}
-				for px := 0; px < width; px++ {
-					t := curvatureAt(px, py)
+				for px := 0; px < w; px++ {
+					t := cs.Sample(px, py, buf)
 					if !math.IsNaN(t) {
-						result[py*width+px] = Color{t, t, t, 1}
+						result[py*w+px] = Color{t, t, t, 1}
 					}
 				}
 			}
@@ -344,39 +400,46 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	}
 	wg.Wait()
 
-	min, max := -1.0, 1.0
-	max = 0
-	for i := range result {
-		max = math.Max(max, math.Abs(result[i].R))
-	}
-	min, max = -max, max
+	return result
+}
 
-	var values []float64
-	for i := range result {
-		if result[i].A != 0 {
-			values = append(values, math.Abs(result[i].R))
+func NormalizeCurvatureImage(image []Color, min, max, gamma, percentile float64) {
+	if min == 0 && max == 0 {
+		max = -math.MaxFloat64
+		for i := range image {
+			max = math.Max(max, math.Abs(image[i].R))
 		}
+		min, max = -max, max
 	}
-	sort.Float64s(values)
-	max = values[len(values)*999/1000]
-	min = -max
-	fmt.Println(min, max)
 
-	for i := range result {
-		c := result[i]
+	if percentile != 0 {
+		var values []float64
+		for i := range image {
+			if image[i].A != 0 {
+				values = append(values, math.Abs(image[i].R))
+			}
+		}
+		sort.Float64s(values)
+		max = values[int(math.Round(float64(len(values)-1)*percentile))]
+		min = -max
+	}
+
+	for i := range image {
+		c := image[i]
 		if c.A == 0 {
 			continue
 		}
 		t := (c.R-min)/(max-min)*2 - 1
-		if t < 0 {
-			t = -math.Pow(-t, curvatureGamma)
-		} else if t > 0 {
-			t = math.Pow(t, curvatureGamma)
+		if gamma != 0 && gamma != 1 {
+			if t < 0 {
+				t = -math.Pow(-t, gamma)
+			} else if t > 0 {
+				t = math.Pow(t, gamma)
+			}
 		}
 		t = (t + 1) / 2
-		result[i] = Color{t, t, t, c.A}
+		image[i] = Color{t, t, t, c.A}
 	}
-	return result
 }
 
 func makeImage(width, height int, buf []Color) *image.RGBA64 {
@@ -459,8 +522,11 @@ func run(inputPath string, frame int) error {
 		// context.DrawMesh(mesh)
 		// SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
-		curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
-		SavePNG(fmt.Sprintf("%s-curvature-%08d.png", filepath.Base(inputPath), frame), makeImage(width, height, curvatureMap))
+		// curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
+		cs := NewCurvatureSampler(width, height, curvatureSamplingRadius_mm, matrix, heightMap, normalMap)
+		buf := cs.Run()
+		NormalizeCurvatureImage(buf, 0, 0, curvatureGamma, 0.999)
+		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, buf))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
@@ -474,7 +540,7 @@ func main() {
 		for i := 0; i < frames; i++ {
 			// fmt.Println(i)
 			run(path, i)
-			// break
+			break
 		}
 	}
 }
