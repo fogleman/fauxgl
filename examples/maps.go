@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"runtime"
+	"sort"
 	"sync"
 
 	"os"
@@ -22,10 +23,10 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 50
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 1
-	curvatureGamma             = 0.8
+	curvatureSamplingRadius_mm = 0.25
+	curvatureGamma             = 1
 	frames                     = 180
 )
 
@@ -112,12 +113,15 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			return invalid
 		}
 		c := heightMap[py*width+px]
-		if c.A == 0 {
-			return invalid
-		}
+		// if c.A == 0 {
+		// 	return invalid
+		// }
 		x := float64(px)/float64(width-1)*2 - 1
 		y := float64(py)/float64(height-1)*2 - 1
 		z := c.R*2 - 1
+		if c.A == 0 {
+			z = 2
+		}
 		return inverse.MulPosition(Vector{x, 1 - y, z})
 	}
 
@@ -172,7 +176,7 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 	curvatureAt := func(px, py int) float64 {
 		p := pointAt(px, py)
 		n := normalAt(px, py)
-		if p == invalid {
+		if n == invalid {
 			return math.NaN()
 		}
 
@@ -180,7 +184,12 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		dy := py - ws
 		f := func(x, y int) float64 {
 			q := pointAt(x+dx, y+dy)
-			return p.Distance(q)
+			// TODO: make this a separate configurable threshold
+			if p.Z-q.Z > curvatureSamplingRadius_mm*2 {
+				return math.NaN()
+			}
+			d := p.Distance(q)
+			return d
 		}
 		m := contourmap.FromFunction(ws*2+1, ws*2+1, f)
 		contours := m.Contours(curvatureSamplingRadius_mm)
@@ -194,8 +203,8 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 				if p0 == invalid || p1 == invalid {
 					continue
 				}
-				d0 := n.Dot(p0.Sub(p))
-				d1 := n.Dot(p1.Sub(p))
+				d0 := n.Dot(p0.Sub(p)) / curvatureSamplingRadius_mm
+				d1 := n.Dot(p1.Sub(p)) / curvatureSamplingRadius_mm
 				d := p0.Distance(p1)
 				sum += (d0 + d1) / 2 * d
 				total += d
@@ -237,6 +246,18 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 		max = math.Max(max, math.Abs(result[i].R))
 	}
 	min, max = -max, max
+
+	var values []float64
+	for i := range result {
+		if result[i].A != 0 {
+			values = append(values, math.Abs(result[i].R))
+		}
+	}
+	sort.Float64s(values)
+	max = values[len(values)*999/1000]
+	min = -max
+	fmt.Println(min, max)
+
 	for i := range result {
 		c := result[i]
 		if c.A == 0 {
@@ -283,6 +304,8 @@ func run(inputPath string, frame int) error {
 	t := float64(frame) / frames
 	angle := -t * 2 * math.Pi
 
+	const r = 50
+	mesh.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
 	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
@@ -333,7 +356,7 @@ func run(inputPath string, frame int) error {
 		SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
 		curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
-		SavePNG(fmt.Sprintf("%s-curvature-%08d.png", filepath.Base(inputPath), frame), makeImage(width, height, curvatureMap))
+		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
