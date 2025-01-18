@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 
 	"github.com/fogleman/colormap"
-	"github.com/fogleman/contourmap"
 
 	. "github.com/fogleman/fauxgl"
 )
@@ -23,9 +22,9 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 // var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 50
+	pixelsPerMillimeter        = 10
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.25
+	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 1
 	frames                     = 180
 )
@@ -96,6 +95,103 @@ func updateHeightMap(heightMap, update []Color) []Color {
 		}
 	}
 	return heightMap
+}
+
+type Segment struct {
+	A, B Vector
+}
+
+func marchingSquares(w, h int, data []float64, z float64) []Segment {
+	fraction := func(z0, z1, z float64) float64 {
+		const eps = 1e-9 // TODO: needed here?
+		var f float64
+		if z0 != z1 {
+			f = (z - z0) / (z1 - z0)
+		}
+		f = math.Max(f, eps)
+		f = math.Min(f, 1-eps)
+		return f
+	}
+	var segments []Segment
+	for y := 0; y < h-1; y++ {
+		for x := 0; x < w-1; x++ {
+			ul := data[x+y*w]
+			ur := data[x+1+y*w]
+			ll := data[x+y*w+w]
+			lr := data[x+1+y*w+w]
+
+			var squareCase int
+			if ul > z {
+				squareCase |= 1
+			}
+			if ur > z {
+				squareCase |= 2
+			}
+			if ll > z {
+				squareCase |= 4
+			}
+			if lr > z {
+				squareCase |= 8
+			}
+
+			if squareCase == 0 || squareCase == 15 {
+				continue
+			}
+
+			fx := float64(x)
+			fy := float64(y)
+
+			t := Vector{fx + fraction(ul, ur, z), fy, 0}
+			b := Vector{fx + fraction(ll, lr, z), fy + 1, 0}
+			l := Vector{fx, fy + fraction(ul, ll, z), 0}
+			r := Vector{fx + 1, fy + fraction(ur, lr, z), 0}
+
+			const connectHigh = false
+			switch squareCase {
+			case 1:
+				segments = append(segments, Segment{t, l})
+			case 2:
+				segments = append(segments, Segment{r, t})
+			case 3:
+				segments = append(segments, Segment{r, l})
+			case 4:
+				segments = append(segments, Segment{l, b})
+			case 5:
+				segments = append(segments, Segment{t, b})
+			case 6:
+				if connectHigh {
+					segments = append(segments, Segment{l, t})
+					segments = append(segments, Segment{r, b})
+				} else {
+					segments = append(segments, Segment{r, t})
+					segments = append(segments, Segment{l, b})
+				}
+			case 7:
+				segments = append(segments, Segment{r, b})
+			case 8:
+				segments = append(segments, Segment{b, r})
+			case 9:
+				if connectHigh {
+					segments = append(segments, Segment{t, r})
+					segments = append(segments, Segment{b, l})
+				} else {
+					segments = append(segments, Segment{t, l})
+					segments = append(segments, Segment{b, r})
+				}
+			case 10:
+				segments = append(segments, Segment{b, t})
+			case 11:
+				segments = append(segments, Segment{b, l})
+			case 12:
+				segments = append(segments, Segment{l, r})
+			case 13:
+				segments = append(segments, Segment{t, r})
+			case 14:
+				segments = append(segments, Segment{l, t})
+			}
+		}
+	}
+	return segments
 }
 
 func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix Matrix) []Color {
@@ -191,24 +287,32 @@ func computeCurvatureMap(width, height int, heightMap, normalMap []Color, matrix
 			d := p.Distance(q)
 			return d
 		}
-		m := contourmap.FromFunction(ws*2+1, ws*2+1, f)
-		contours := m.Contours(curvatureSamplingRadius_mm)
+
+		N := ws*2 + 1
+		grid := make([]float64, N*N)
+		i := 0
+		for y := 0; y < N; y++ {
+			for x := 0; x < N; x++ {
+				grid[i] = f(x, y)
+				i++
+			}
+		}
+		segments := marchingSquares(N, N, grid, curvatureSamplingRadius_mm)
 
 		var sum, total float64
-		for _, contour := range contours {
-			for i := 1; i < len(contour); i++ {
-				j := i - 1
-				p0 := bilinear(contour[j].X+float64(dx), contour[j].Y+float64(dy))
-				p1 := bilinear(contour[i].X+float64(dx), contour[i].Y+float64(dy))
-				if p0 == invalid || p1 == invalid {
-					continue
-				}
-				d0 := n.Dot(p0.Sub(p)) / curvatureSamplingRadius_mm
-				d1 := n.Dot(p1.Sub(p)) / curvatureSamplingRadius_mm
-				d := p0.Distance(p1)
-				sum += (d0 + d1) / 2 * d
-				total += d
+		for _, segment := range segments {
+			a := segment.A
+			b := segment.B
+			p0 := bilinear(a.X+float64(dx), a.Y+float64(dy))
+			p1 := bilinear(b.X+float64(dx), b.Y+float64(dy))
+			if p0 == invalid || p1 == invalid {
+				continue
 			}
+			d0 := n.Dot(p0.Sub(p)) / curvatureSamplingRadius_mm
+			d1 := n.Dot(p1.Sub(p)) / curvatureSamplingRadius_mm
+			d := p0.Distance(p1)
+			sum += (d0 + d1) / 2 * d
+			total += d
 		}
 
 		if total == 0 {
@@ -315,8 +419,8 @@ func run(inputPath string, frame int) error {
 
 	box := mesh.BoundingBox()
 	size := box.Size()
-	// size.X = 70
-	// size.Y = 48
+	size.X = 100
+	size.Y = 100
 	// fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
@@ -339,24 +443,24 @@ func run(inputPath string, frame int) error {
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(width, height, modeNormal, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("%s-normal.png", filepath.Base(inputPath)), context.Image())
+		// SavePNG(fmt.Sprintf("%s-normal.png", filepath.Base(inputPath)), context.Image())
 		normalMap := context.Buffer()
 
 		context.ClearDepthBuffer()
 		context.ClearColorBufferWith(Color{})
 		context.Shader = NewMapShader(width, height, modeHeight, matrix, z0, z1, prevHeightMap)
 		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("%s-height.png", filepath.Base(inputPath)), context.Image())
+		// SavePNG(fmt.Sprintf("%s-height.png", filepath.Base(inputPath)), context.Image())
 		heightMap := context.Buffer()
 
-		context.ClearDepthBuffer()
-		context.ClearColorBufferWith(Color{})
-		context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
-		context.DrawMesh(mesh)
-		SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
+		// context.ClearDepthBuffer()
+		// context.ClearColorBufferWith(Color{})
+		// context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
+		// context.DrawMesh(mesh)
+		// SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 
 		curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
-		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, curvatureMap))
+		SavePNG(fmt.Sprintf("%s-curvature-%08d.png", filepath.Base(inputPath), frame), makeImage(width, height, curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
@@ -370,7 +474,7 @@ func main() {
 		for i := 0; i < frames; i++ {
 			// fmt.Println(i)
 			run(path, i)
-			break
+			// break
 		}
 	}
 }
