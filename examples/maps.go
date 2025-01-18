@@ -19,12 +19,12 @@ import (
 
 var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
 
-// var palette = colormap.New(colormap.ParseColors("000000ffffff"))
+// var palette = colormap.New(colormap.ParseColors("ffffff000000"))
 
 const (
-	pixelsPerMillimeter        = 20
+	pixelsPerMillimeter        = 10
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 0.5
+	curvatureSamplingRadius_mm = 2
 	curvatureGamma             = 1
 	frames                     = 180
 )
