@@ -24,7 +24,7 @@ var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f
 const (
 	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 1
+	curvatureSamplingRadius_mm = 0.5
 	curvatureGamma             = 1
 	frames                     = 180
 )
@@ -80,7 +80,7 @@ func (shader *MapShader) Fragment(v Vertex) Color {
 	}
 
 	if shader.Mode == modeAngle {
-		a := 1 - math.Abs(v.Normal.Dot(V(0, 0, 1)))
+		a := math.Abs(v.Normal.Dot(V(0, 0, 1)))
 		return Color{a, a, a, 1}
 	}
 
@@ -105,13 +105,12 @@ type Segment struct {
 
 func MarchingSquares(w, h int, data []float64, z float64, segments []Segment) []Segment {
 	fraction := func(z0, z1, z float64) float64 {
-		const eps = 1e-9 // TODO: needed here?
 		var f float64
 		if z0 != z1 {
 			f = (z - z0) / (z1 - z0)
 		}
-		f = math.Max(f, eps)
-		f = math.Min(f, 1-eps)
+		f = math.Max(f, 0)
+		f = math.Min(f, 1)
 		return f
 	}
 	for y := 0; y < h-1; y++ {
@@ -462,6 +461,40 @@ func makeImage(width, height int, buf []Color) *image.RGBA64 {
 	return im
 }
 
+func makeCombinedImage(width, height int, angle, curvature []Color) *image.RGBA64 {
+	im := image.NewRGBA64(image.Rect(0, 0, width, height))
+	var i int
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// a := angle[i]
+			// c := curvature[i]
+			var e color.NRGBA64
+			if angle[i].A == 0 {
+				e = color.NRGBA64{0, 0, 0, 0xffff}
+				// e = color.NRGBA64{}
+			} else {
+				a := angle[i].R
+				c := curvature[i].R*2 - 1
+
+				var r, g, b uint16
+				g = uint16(math.Round(a * 0xffff))
+				if c > 0 {
+					c = math.Min(c, 1)
+					b = uint16(math.Round(c * 0xffff))
+				} else {
+					c = math.Max(c, -1)
+					r = uint16(math.Round(-c * 0xffff))
+				}
+
+				e = color.NRGBA64{r, g, b, 0xffff}
+			}
+			im.Set(x, y, e)
+			i++
+		}
+	}
+	return im
+}
+
 func run(inputPath string, frame int) error {
 	mesh, err := LoadMesh(inputPath)
 	if err != nil {
@@ -520,13 +553,16 @@ func run(inputPath string, frame int) error {
 		// context.ClearColorBufferWith(Color{})
 		// context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
 		// context.DrawMesh(mesh)
-		// SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
+		// // SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
+		// angleMap := context.Buffer()
 
 		// curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
 		cs := NewCurvatureSampler(width, height, curvatureSamplingRadius_mm, matrix, heightMap, normalMap)
-		buf := cs.Run()
-		NormalizeCurvatureImage(buf, 0, 0, curvatureGamma, 0.999)
-		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, buf))
+		curvatureMap := cs.Run()
+		NormalizeCurvatureImage(curvatureMap, 0, 0, curvatureGamma, 0)
+		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, curvatureMap))
+
+		// SavePNG(fmt.Sprintf("%s-combined.png", filepath.Base(inputPath)), makeCombinedImage(width, height, angleMap, curvatureMap))
 
 		prevHeightMap = updateHeightMap(prevHeightMap, heightMap)
 	}
