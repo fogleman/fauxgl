@@ -17,14 +17,14 @@ import (
 	. "github.com/fogleman/fauxgl"
 )
 
-var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"))
+var palette = colormap.New(colormap.ParseColors("67001fb2182bd6604df4a582fddbc7ffffffd1e5f092c5de4393c32166ac053061"))
 
-// var palette = colormap.New(colormap.ParseColors("ffffff000000"))
+// var palette = colormap.New(colormap.ParseColors("000000ffffff"))
 
 const (
-	pixelsPerMillimeter        = 10
+	pixelsPerMillimeter        = 20
 	padding_mm                 = 1
-	curvatureSamplingRadius_mm = 2
+	curvatureSamplingRadius_mm = 0.25
 	curvatureGamma             = 1
 	frames                     = 180
 )
@@ -42,6 +42,14 @@ var (
 )
 
 var Invalid = Vector{math.MaxFloat64, math.MaxFloat64, math.MaxFloat64}
+
+// func Quantize(c Color) Color {
+// 	r := math.Round(c.R*256) / 256
+// 	g := math.Round(c.G*256) / 256
+// 	b := math.Round(c.B*256) / 256
+// 	a := math.Round(c.A*256) / 256
+// 	return Color{r, g, b, a}
+// }
 
 type MapShader struct {
 	Width     int
@@ -322,6 +330,21 @@ func (cs *CurvatureSampler) Sample(px, py int, buf *CurvatureSamplerBuffers) flo
 	}
 	p := cs.PointAt(px, py)
 
+	// {
+	// 	p00 := cs.PointAt(px-cs.HalfWidth, py)
+	// 	p10 := cs.PointAt(px+cs.HalfWidth, py)
+	// 	p01 := cs.PointAt(px, py-cs.HalfWidth)
+	// 	p11 := cs.PointAt(px, py+cs.HalfWidth)
+	// 	e1 := p10.Sub(p)
+	// 	e2 := p11.Sub(p)
+	// 	n := e1.Cross(e2).Normalize()
+	// 	d00 := n.Dot(p00.Sub(p))
+	// 	d01 := n.Dot(p01.Sub(p))
+	// 	if math.Abs(d00) < 1e-9 && math.Abs(d01) < 1e-9 {
+	// 		return 0
+	// 	}
+	// }
+
 	dx := px - cs.HalfWidth
 	dy := py - cs.HalfWidth
 	f := func(x, y int) float64 {
@@ -330,7 +353,8 @@ func (cs *CurvatureSampler) Sample(px, py int, buf *CurvatureSamplerBuffers) flo
 		if p.Z-q.Z > cs.Radius*2 {
 			return math.NaN()
 		}
-		d := p.Distance(q)
+		dx, dy, dz := p.X-q.X, p.Y-q.Y, p.Z-q.Z
+		d := math.Sqrt(dx*dx + dy*dy + dz*dz)
 		return d
 	}
 
@@ -376,6 +400,9 @@ func (cs *CurvatureSampler) Sample(px, py int, buf *CurvatureSamplerBuffers) flo
 func (cs *CurvatureSampler) Run() []Color {
 	w, h := cs.Width, cs.Height
 	result := make([]Color, w*h)
+
+	N := cs.HalfWidth*2 + 1
+	fmt.Println(w, h, N, N*N, w*h*N*N)
 
 	var wg sync.WaitGroup
 	wn := runtime.NumCPU()
@@ -453,6 +480,7 @@ func makeImage(width, height int, buf []Color) *image.RGBA64 {
 			if c.A == 0 {
 				e = color.NRGBA64{0xffff, 0xffff, 0xffff, 0xffff}
 				// e = color.NRGBA64{}
+				// e = color.NRGBA64{0, 0, 0, 0xffff}
 			}
 			im.Set(x, y, e)
 			i++
@@ -507,16 +535,16 @@ func run(inputPath string, frame int) error {
 	const r = 50
 	mesh.FitInside(Box{Vector{-r, -r, -r}, Vector{r, r, r}}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{1, 0, 0}, -math.Pi/2))
-	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	mesh.Transform(Rotate(Vector{0, 1, 0}, angle))
-	// mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
+	mesh.Transform(Rotate(Vector{0, 1, 0}, math.Pi/4))
+	mesh.MoveTo(Vector{0, 0, 0}, Vector{0.5, 0.5, 0.5})
 	// mesh.Transform(Rotate(RandomUnitVector(), rand.Float64()*3))
-	// mesh.SmoothNormalsThreshold(Radians(30))
+	// mesh.SmoothNormalsThreshold(Radians(15))
 
 	box := mesh.BoundingBox()
 	size := box.Size()
-	size.X = 100
-	size.Y = 100
+	// size.X = 100
+	// size.Y = 100
 	// fmt.Println(size)
 	z0 := box.Min.Z
 	z1 := box.Max.Z
@@ -550,16 +578,16 @@ func run(inputPath string, frame int) error {
 		heightMap := context.Buffer()
 
 		// context.ClearDepthBuffer()
-		// context.ClearColorBufferWith(Color{})
+		// context.ClearColorBufferWith(Color{0, 0, 0, 1})
 		// context.Shader = NewMapShader(width, height, modeAngle, matrix, z0, z1, prevHeightMap)
 		// context.DrawMesh(mesh)
-		// // SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
+		// SavePNG(fmt.Sprintf("%s-angle.png", filepath.Base(inputPath)), context.Image())
 		// angleMap := context.Buffer()
 
 		// curvatureMap := computeCurvatureMap(width, height, heightMap, normalMap, matrix)
 		cs := NewCurvatureSampler(width, height, curvatureSamplingRadius_mm, matrix, heightMap, normalMap)
 		curvatureMap := cs.Run()
-		NormalizeCurvatureImage(curvatureMap, 0, 0, curvatureGamma, 0)
+		NormalizeCurvatureImage(curvatureMap, 0, 0, curvatureGamma, 0.999)
 		SavePNG(fmt.Sprintf("%s-curvature.png", filepath.Base(inputPath)), makeImage(width, height, curvatureMap))
 
 		// SavePNG(fmt.Sprintf("%s-combined.png", filepath.Base(inputPath)), makeCombinedImage(width, height, angleMap, curvatureMap))
