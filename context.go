@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"runtime"
+	"sort"
 	"sync"
 )
 
@@ -37,16 +38,23 @@ func (info RasterizeInfo) Add(other RasterizeInfo) RasterizeInfo {
 	}
 }
 
+type StackItem struct {
+	Z float64
+	C Color
+}
+
 type Context struct {
 	Width        int
 	Height       int
 	ColorBuffer  []Color
 	DepthBuffer  []float64
+	Stack        [][]StackItem
 	ClearColor   Color
 	Shader       Shader
 	ReadDepth    bool
 	WriteDepth   bool
 	WriteColor   bool
+	WriteStack   bool
 	AlphaBlend   bool
 	Wireframe    bool
 	FrontFace    Face
@@ -63,11 +71,13 @@ func NewContext(width, height int) *Context {
 	dc.Height = height
 	dc.ColorBuffer = make([]Color, width*height)
 	dc.DepthBuffer = make([]float64, width*height)
+	dc.Stack = make([][]StackItem, width*height)
 	dc.ClearColor = Transparent
 	dc.Shader = NewSolidColorShader(Identity(), Color{1, 0, 1, 1})
 	dc.ReadDepth = true
 	dc.WriteDepth = true
 	dc.WriteColor = true
+	dc.WriteStack = false
 	dc.AlphaBlend = true
 	dc.Wireframe = false
 	dc.FrontFace = FaceCCW
@@ -159,6 +169,20 @@ func (dc *Context) ClearDepthBuffer() {
 	dc.ClearDepthBufferWith(math.MaxFloat64)
 }
 
+func (dc *Context) ClearStack() {
+	for i := range dc.Stack {
+		dc.Stack[i] = nil
+	}
+}
+
+func (dc *Context) SortStack() {
+	for index := range dc.Stack {
+		sort.Slice(dc.Stack[index], func(i, j int) bool {
+			return dc.Stack[index][i].Z < dc.Stack[index][j].Z
+		})
+	}
+}
+
 func edge(a, b, c Vector) float64 {
 	return (b.X-c.X)*(a.Y-c.Y) - (b.Y-c.Y)*(a.X-c.X)
 }
@@ -244,9 +268,9 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			info.TotalPixels++
 			z := b0*s0.Z + b1*s1.Z + b2*s2.Z
 			bz := z + dc.DepthBias
-			if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
-				continue
-			}
+			// if dc.ReadDepth && bz > dc.DepthBuffer[i] { // safe w/out lock?
+			// 	continue
+			// }
 			// perspective-correct interpolation of vertex data
 			b := VectorW{b0 * r0, b1 * r1, b2 * r2, 0}
 			b.W = 1 / (b.X + b.Y + b.Z)
@@ -261,6 +285,9 @@ func (dc *Context) rasterize(v0, v1, v2 Vertex, s0, s1, s2 Vector) RasterizeInfo
 			// update buffers atomically
 			lock := &dc.locks[(x+y)&255]
 			lock.Lock()
+			if dc.WriteStack {
+				dc.Stack[i] = append(dc.Stack[i], StackItem{z, color})
+			}
 			// check depth buffer again
 			if bz <= dc.DepthBuffer[i] || !dc.ReadDepth {
 				info.UpdatedPixels++
