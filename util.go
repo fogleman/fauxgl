@@ -5,6 +5,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
+	"io"
 	"math"
 	"os"
 	"path/filepath"

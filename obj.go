@@ -2,6 +2,7 @@ package fauxgl
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -21,12 +22,16 @@ func LoadOBJ(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	return LoadOBJReader(file)
+}
+
+func LoadOBJReader(r io.ReadCloser) (*Mesh, error) {
+	defer r.Close()
 	vs := make([]Vector, 1, 1024)  // 1-based indexing
 	vts := make([]Vector, 1, 1024) // 1-based indexing
 	vns := make([]Vector, 1, 1024) // 1-based indexing
 	var triangles []*Triangle
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line)
