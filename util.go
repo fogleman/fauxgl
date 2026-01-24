@@ -5,6 +5,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -28,19 +29,91 @@ func LatLngToXYZ(lat, lng float64) Vector {
 	return Vector{x, y, z}
 }
 
+type SeekReadCloser interface {
+	io.ReaderFrom
+}
+
 func LoadMesh(path string) (*Mesh, error) {
+	meshType, err := MeshTypeFromPath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fi, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer fi.Close()
+
+	stat, err := fi.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	return LoadMeshSizedReader(meshType, fi, stat.Size())
+}
+
+type MeshType string
+
+const (
+	MeshTypeUnknown = ""
+	MeshTypeSTL = ".stl"
+	MeshTypeOBJ = ".obj"
+	MeshTypePLY = ".ply"
+	MeshType3DS = ".3ds"
+)
+
+func MeshTypeFromPath(path string) (MeshType, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".stl":
-		return LoadSTL(path)
-	case ".obj":
-		return LoadOBJ(path)
-	case ".ply":
-		return LoadPLY(path)
-	case ".3ds":
-		return Load3DS(path)
+	case MeshTypeSTL:
+		return MeshTypeSTL, nil
+	case MeshTypeOBJ:
+		return MeshTypeOBJ, nil
+	case MeshTypePLY:
+		return MeshTypePLY, nil
+	case MeshType3DS:
+		return MeshType3DS, nil
 	}
-	return nil, fmt.Errorf("unrecognized mesh extension: %s", ext)
+
+	return MeshTypeUnknown, fmt.Errorf("unrecognized mesh type: %s", ext)
+}
+
+func LoadMeshSizedReader(
+	meshType MeshType,
+	r io.Reader,
+	size int64,
+) (*Mesh, error) {
+	switch meshType {
+	case MeshTypeSTL:
+		return LoadSTLReader(r, size)
+	case MeshTypeOBJ:
+		return LoadOBJReader(r)
+	case MeshTypePLY:
+		return LoadPLYReader(r)
+	case MeshType3DS:
+		return Load3DSReader(r)
+	}
+
+	return nil, fmt.Errorf("unsupported mesh type: %s", meshType)
+}
+
+func LoadMeshReader(
+	meshType MeshType,
+	r io.Reader,
+) (*Mesh, error) {
+	switch meshType {
+	case MeshTypeSTL:
+		return nil, fmt.Errorf("cannot load an stl mesh from an unsized io.Reader")
+	case MeshTypeOBJ:
+		return LoadOBJReader(r)
+	case MeshTypePLY:
+		return LoadPLYReader(r)
+	case MeshType3DS:
+		return Load3DSReader(r)
+	}
+
+	return nil, fmt.Errorf("unsupported mesh type: %s", meshType)
 }
 
 func LoadImage(path string) (image.Image, error) {
