@@ -3,6 +3,7 @@ package fauxgl
 import (
 	"bufio"
 	"encoding/binary"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -76,8 +77,12 @@ func LoadPLY(path string) (*Mesh, error) {
 	}
 	defer file.Close()
 
+	return LoadPLYReader(file)
+}
+
+func LoadPLYReader(r io.Reader) (*Mesh, error) {
 	// read header
-	reader := bufio.NewReader(file)
+	reader := bufio.NewReader(r)
 	var element plyElement
 	var elements []plyElement
 	format := plyAscii
@@ -126,20 +131,18 @@ func LoadPLY(path string) (*Mesh, error) {
 		}
 	}
 
-	file.Seek(int64(bytes), 0)
-
 	switch format {
 	case plyBinaryBigEndian:
-		return loadPlyBinary(file, elements, binary.BigEndian)
+		return loadPlyBinary(reader, elements, binary.BigEndian)
 	case plyBinaryLittleEndian:
-		return loadPlyBinary(file, elements, binary.LittleEndian)
+		return loadPlyBinary(reader, elements, binary.LittleEndian)
 	default:
-		return loadPlyAscii(file, elements)
+		return loadPlyAscii(reader, elements)
 	}
 }
 
-func loadPlyAscii(file *os.File, elements []plyElement) (*Mesh, error) {
-	scanner := bufio.NewScanner(file)
+func loadPlyAscii(r io.Reader, elements []plyElement) (*Mesh, error) {
+	scanner := bufio.NewScanner(r)
 	var vertexes []Vector
 	var triangles []*Triangle
 	for _, element := range elements {
@@ -181,7 +184,7 @@ func loadPlyAscii(file *os.File, elements []plyElement) (*Mesh, error) {
 	return NewTriangleMesh(triangles), nil
 }
 
-func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder) (*Mesh, error) {
+func loadPlyBinary(r io.Reader, elements []plyElement, order binary.ByteOrder) (*Mesh, error) {
 	var vertexes []Vector
 	var triangles []*Triangle
 	for _, element := range elements {
@@ -190,7 +193,7 @@ func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder)
 			var points []Vector
 			for _, property := range element.properties {
 				if property.countType == plyNone {
-					value, err := readPlyFloat(file, order, property.dataType)
+					value, err := readPlyFloat(r, order, property.dataType)
 					if err != nil {
 						return nil, err
 					}
@@ -204,12 +207,12 @@ func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder)
 						vertex.Z = value
 					}
 				} else {
-					count, err := readPlyInt(file, order, property.countType)
+					count, err := readPlyInt(r, order, property.countType)
 					if err != nil {
 						return nil, err
 					}
 					for j := 0; j < count; j++ {
-						value, err := readPlyInt(file, order, property.dataType)
+						value, err := readPlyInt(r, order, property.dataType)
 						if err != nil {
 							return nil, err
 						}
@@ -235,12 +238,12 @@ func loadPlyBinary(file *os.File, elements []plyElement, order binary.ByteOrder)
 	return NewTriangleMesh(triangles), nil
 }
 
-func readPlyInt(file *os.File, order binary.ByteOrder, dataType plyDataType) (int, error) {
+func readPlyInt(file io.Reader, order binary.ByteOrder, dataType plyDataType) (int, error) {
 	value, err := readPlyFloat(file, order, dataType)
 	return int(value), err
 }
 
-func readPlyFloat(file *os.File, order binary.ByteOrder, dataType plyDataType) (float64, error) {
+func readPlyFloat(file io.Reader, order binary.ByteOrder, dataType plyDataType) (float64, error) {
 	switch dataType {
 	case plyInt8:
 		var value int8

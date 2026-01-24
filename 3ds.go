@@ -7,23 +7,26 @@ import (
 )
 
 func Load3DS(filename string) (*Mesh, error) {
-	type ChunkHeader struct {
-		ChunkID uint16
-		Length  uint32
-	}
-
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
+	return Load3DSReader(file)
+}
+
+func Load3DSReader(r io.Reader) (*Mesh, error) {
+	type ChunkHeader struct {
+		ChunkID uint16
+		Length  uint32
+	}
 	var vertices []Vector
 	var faces []*Triangle
 	var triangles []*Triangle
 	for {
 		header := ChunkHeader{}
-		if err := binary.Read(file, binary.LittleEndian, &header); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
 			if err == io.EOF {
 				break
 			}
@@ -33,26 +36,26 @@ func Load3DS(filename string) (*Mesh, error) {
 		case 0x4D4D:
 		case 0x3D3D:
 		case 0x4000:
-			_, err := readNullTerminatedString(file)
+			_, err := readNullTerminatedString(r)
 			if err != nil {
 				return nil, err
 			}
 		case 0x4100:
 		case 0x4110:
-			v, err := readVertexList(file)
+			v, err := readVertexList(r)
 			if err != nil {
 				return nil, err
 			}
 			vertices = v
 		case 0x4120:
-			f, err := readFaceList(file, vertices)
+			f, err := readFaceList(r, vertices)
 			if err != nil {
 				return nil, err
 			}
 			faces = f
 			triangles = append(triangles, faces...)
 		case 0x4150:
-			err := readSmoothingGroups(file, faces)
+			err := readSmoothingGroups(r, faces)
 			if err != nil {
 				return nil, err
 			}
@@ -65,16 +68,25 @@ func Load3DS(filename string) (*Mesh, error) {
 		// 		vertices[i] = matrix.MulPosition(v)
 		// 	}
 		default:
-			file.Seek(int64(header.Length-6), 1)
+			var err error
+			if seeker, canSeek := r.(io.Seeker); canSeek {
+				_, err = seeker.Seek(int64(header.Length-6), io.SeekCurrent)
+			} else {
+				_, err = io.CopyN(io.Discard, r, int64(header.Length-6))
+			}
+
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	return NewTriangleMesh(triangles), nil
 }
 
-func readSmoothingGroups(file *os.File, triangles []*Triangle) error {
+func readSmoothingGroups(r io.Reader, triangles []*Triangle) error {
 	groups := make([]uint32, len(triangles))
-	if err := binary.Read(file, binary.LittleEndian, &groups); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &groups); err != nil {
 		return err
 	}
 	var tables [32]map[Vector][]Vector
@@ -117,9 +129,9 @@ func readSmoothingGroups(file *os.File, triangles []*Triangle) error {
 	return nil
 }
 
-func readLocalAxis(file *os.File) (Matrix, error) {
+func readLocalAxis(r io.Reader) (Matrix, error) {
 	var m [4][3]float32
-	if err := binary.Read(file, binary.LittleEndian, &m); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &m); err != nil {
 		return Matrix{}, err
 	}
 	matrix := Matrix{
@@ -131,15 +143,15 @@ func readLocalAxis(file *os.File) (Matrix, error) {
 	return matrix, nil
 }
 
-func readVertexList(file *os.File) ([]Vector, error) {
+func readVertexList(r io.Reader) ([]Vector, error) {
 	var count uint16
-	if err := binary.Read(file, binary.LittleEndian, &count); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &count); err != nil {
 		return nil, err
 	}
 	result := make([]Vector, count)
 	for i := range result {
 		var v [3]float32
-		if err := binary.Read(file, binary.LittleEndian, &v); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
 			return nil, err
 		}
 		result[i] = Vector{float64(v[0]), float64(v[1]), float64(v[2])}
@@ -147,15 +159,15 @@ func readVertexList(file *os.File) ([]Vector, error) {
 	return result, nil
 }
 
-func readFaceList(file *os.File, vertices []Vector) ([]*Triangle, error) {
+func readFaceList(r io.Reader, vertices []Vector) ([]*Triangle, error) {
 	var count uint16
-	if err := binary.Read(file, binary.LittleEndian, &count); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, &count); err != nil {
 		return nil, err
 	}
 	result := make([]*Triangle, count)
 	for i := range result {
 		var v [4]uint16
-		if err := binary.Read(file, binary.LittleEndian, &v); err != nil {
+		if err := binary.Read(r, binary.LittleEndian, &v); err != nil {
 			return nil, err
 		}
 		result[i] = NewTriangleForPoints(
@@ -164,11 +176,11 @@ func readFaceList(file *os.File, vertices []Vector) ([]*Triangle, error) {
 	return result, nil
 }
 
-func readNullTerminatedString(file *os.File) (string, error) {
+func readNullTerminatedString(r io.Reader) (string, error) {
 	var bytes []byte
 	buf := make([]byte, 1)
 	for {
-		n, err := file.Read(buf)
+		n, err := r.Read(buf)
 		if err != nil {
 			return "", err
 		} else if n == 1 {

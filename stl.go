@@ -2,6 +2,7 @@ package fauxgl
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"io"
 	"math"
@@ -10,9 +11,14 @@ import (
 	"strings"
 )
 
-type STLHeader struct {
-	_     [80]uint8
-	Count uint32
+type STLHeader [84]byte
+
+func (s *STLHeader) Count() uint32 {
+	return binary.LittleEndian.Uint32(s[80:])
+}
+
+func (s *STLHeader) SetCount(count uint32) {
+	binary.LittleEndian.AppendUint32(s[80:80], count)
 }
 
 type STLTriangle struct {
@@ -35,30 +41,33 @@ func LoadSTL(path string) (*Mesh, error) {
 	}
 	size := info.Size()
 
+	return LoadSTLReader(file, size)
+}
+
+func LoadSTLReader(r io.Reader, size int64) (*Mesh, error) {
 	// read header, get expected binary size
 	header := STLHeader{}
-	if err := binary.Read(file, binary.LittleEndian, &header); err != nil {
+	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return nil, err
 	}
-	expectedSize := int64(header.Count)*50 + 84
-
-	// rewind to start of file
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return nil, err
-	}
+	expectedSize := int64(header.Count())*50 + 84
 
 	// parse ascii or binary stl
 	if size == expectedSize {
-		return loadSTLB(file)
+		return loadSTLB(
+			&header,
+			r,
+		)
 	} else {
-		return loadSTLA(file)
+		return loadSTLA(
+			io.MultiReader(bytes.NewReader(header[:]), r),
+		)
 	}
 }
 
-func loadSTLA(file *os.File) (*Mesh, error) {
+func loadSTLA(r io.Reader) (*Mesh, error) {
 	var vertexes []Vector
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line)
@@ -83,16 +92,15 @@ func makeFloat(b []byte) float64 {
 	return float64(math.Float32frombits(binary.LittleEndian.Uint32(b)))
 }
 
-func loadSTLB(file *os.File) (*Mesh, error) {
-	r := bufio.NewReader(file)
-	header := STLHeader{}
-	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
-		return nil, err
-	}
-	count := int(header.Count)
+func loadSTLB(
+	header *STLHeader,
+	reader io.Reader,
+) (*Mesh, error) {
+	count := int(header.Count())
 	triangles := make([]*Triangle, count)
 	_triangles := make([]Triangle, count)
 	b := make([]byte, count*50)
+	r := bufio.NewReader(reader)
 	_, err := io.ReadFull(r, b)
 	if err != nil {
 		return nil, err
@@ -161,7 +169,7 @@ func SaveSTL(path string, mesh *Mesh) error {
 	defer file.Close()
 	w := bufio.NewWriter(file)
 	header := STLHeader{}
-	header.Count = uint32(len(mesh.Triangles))
+	header.SetCount(uint32(len(mesh.Triangles)))
 	if err := binary.Write(w, binary.LittleEndian, &header); err != nil {
 		return err
 	}
